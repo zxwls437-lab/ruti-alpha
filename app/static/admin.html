@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUTI 관리자</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs button{padding:6px 12px}
+.item{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.item .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.item .actions input{flex:1;min-width:160px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+.auth{max-width:380px;margin:40px auto}
+</style></head><body>
+<nav><b>RUTI</b><a href="/chat">상담</a><a href="/admin" class="on">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>관리자 로그인</h2>
+    <input name="username" placeholder="아이디" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost hidden" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+  <section class="card hidden" id="denied"><h2>관리자 권한이 없어요</h2>
+    <p>서버 폴더에서 아래 명령으로 관리자 계정을 만들거나 기존 계정에 권한을 줄 수 있어요.</p>
+    <pre>python -m scripts.create_admin 아이디</pre></section>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <h2>제품 검토</h2>
+      <p class="muted">승인된 제품만 검색과 AI 상담에 사용돼요. 근거 자료 URL이 없으면 승인할 수 없어요.</p>
+      <div class="tabs" id="tabs"></div>
+      <div id="list"></div>
+    </section>
+    <section class="card">
+      <h2>제품 직접 등록</h2>
+      <form id="addForm" class="stack">
+        <div class="grid2">
+          <input name="name" placeholder="제품명 *" required maxlength="200">
+          <input name="brand" placeholder="브랜드" maxlength="150">
+          <input name="category" placeholder="분류 (예: 크림, 토너, 선크림)" maxlength="50">
+          <input name="skin_types" placeholder="피부 타입 (쉼표 구분: 건성,복합성)">
+        </div>
+        <input name="key_ingredients" placeholder="주요 성분 (쉼표 구분)">
+        <textarea name="description" rows="2" placeholder="설명"></textarea>
+        <textarea name="cautions" rows="2" placeholder="주의사항"></textarea>
+        <input name="source_url" placeholder="근거 자료 URL (공식 페이지, 성분표 등) https://...">
+        <button>검토 대기로 등록</button><div class="error" id="addErr"></div>
+      </form>
+    </section>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+const TABS = {pending: '검토 대기', approved: '승인됨', rejected: '거절됨', all: '전체'};
+const LABEL = {pending: '검토 대기', approved: '승인됨', rejected: '거절됨'};
+let current = 'pending';
+
+function renderTabs(){
+  $('tabs').replaceChildren(...Object.entries(TABS).map(([k, v]) =>
+    el('button', {class: k === current ? '' : 'ghost', onclick: () => { current = k; load(); }}, v)));
+}
+async function review(id, action, note){
+  try { await api(`/admin/products/${id}/${action}`, {method: 'POST', body: {note}}); load(); }
+  catch (e) { alert(e.message); }
+}
+async function editSource(p){
+  const url = prompt('근거 자료 URL', p.source_url || 'https://');
+  if (url == null) return;
+  try { await api('/admin/products/' + p.id, {method: 'PATCH', body: {source_url: url.trim()}}); load(); }
+  catch (e) { alert(e.message); }
+}
+async function load(){
+  renderTabs();
+  const {products} = await api('/admin/products?status=' + current);
+  $('list').replaceChildren(...products.map(p => {
+    const note = el('input', {placeholder: '검토 메모 (선택)', value: p.review_note || ''});
+    return el('div', {class: 'item'},
+      el('strong', {}, `#${p.id} ${p.name}`), p.brand ? ' · ' + p.brand : '', ' ', el('span', {class: 'tag'}, LABEL[p.status]),
+      el('div', {class: 'muted'}, [p.category, p.skin_types.join(', '), p.key_ingredients].filter(Boolean).join(' | ')),
+      p.description ? el('div', {}, p.description) : null,
+      p.cautions ? el('div', {class: 'muted'}, '주의: ' + p.cautions) : null,
+      p.source_url ? el('a', {href: p.source_url, target: '_blank', rel: 'noopener noreferrer'}, p.source_url) : el('div', {class: 'error'}, '근거 자료 없음'),
+      el('div', {class: 'actions'}, note,
+        p.status !== 'approved' ? el('button', {onclick: () => review(p.id, 'approve', note.value)}, '승인') : null,
+        p.status !== 'rejected' ? el('button', {class: 'danger', onclick: () => review(p.id, 'reject', note.value)}, '거절') : null,
+        el('button', {class: 'ghost', onclick: () => editSource(p)}, '근거 URL 수정')));
+  }));
+  if (!products.length) $('list').append(el('p', {class: 'muted'}, '해당하는 제품이 없어요.'));
+}
+async function start(){
+  let me;
+  try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
+  if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
+  $('app').classList.remove('hidden'); load();
+}
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('addErr').textContent = '';
+  const f = e.target, body = {};
+  for (const k of ['name', 'brand', 'category', 'key_ingredients', 'description', 'cautions', 'source_url']) body[k] = f[k].value.trim();
+  body.skin_types = f.skin_types.value.split(',').map(s => s.trim()).filter(Boolean);
+  try { await api('/products/stage', {method: 'POST', body}); f.reset(); current = 'pending'; load(); }
+  catch (err) { $('addErr').textContent = err.message; }
+});
+$('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>

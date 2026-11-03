@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUTI 상담</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}}
+#log{height:min(60vh,560px);overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px}
+.msg{max-width:85%;padding:10px 14px;border-radius:14px;white-space:pre-wrap;line-height:1.5}
+.msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:var(--soft);border-bottom-left-radius:4px}
+.msg.warn{background:var(--warn-bg)}
+.prod{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px}
+.mem{display:flex;justify-content:space-between;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.mem button{padding:2px 8px;font-size:12px}
+.auth{max-width:380px;margin:40px auto}
+</style></head><body>
+<nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/admin">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>로그인</h2>
+    <p class="muted">RUTI는 스킨케어 정보를 제공하는 AI 도우미예요. 의료 진단을 대신하지 않아요.</p>
+    <input name="username" placeholder="아이디 (영문/숫자 3~30자)" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+
+  <div class="layout hidden" id="app">
+    <section class="card">
+      <div class="row" style="margin-bottom:8px"><h2 style="margin:0">상담</h2><button class="ghost" id="clear">대화 지우기</button></div>
+      <div id="log"></div>
+      <form id="ask" class="row" style="margin-top:12px">
+        <textarea name="message" rows="2" maxlength="2000" placeholder="피부 고민을 적어 주세요 (Enter 전송, Shift+Enter 줄바꿈)" required></textarea>
+        <button type="submit">보내기</button>
+      </form>
+      <div class="error" id="askErr"></div>
+    </section>
+    <aside class="card">
+      <h2>내 피부 정보</h2>
+      <p class="muted">상담할 때 참고해요. 예: 건성, 향료 민감, 가벼운 제형 선호</p>
+      <form id="memForm" class="row"><input name="content" maxlength="2000" placeholder="추가할 정보" required><button>추가</button></form>
+      <div id="mems"></div>
+    </aside>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+
+function productCard(p){
+  return el('div', {class: 'prod'},
+    el('strong', {}, p.name), p.brand ? ' · ' + p.brand : '', el('br'),
+    ...(p.skin_types || []).map(s => el('span', {class: 'tag'}, s)),
+    p.key_ingredients ? el('div', {class: 'muted'}, '주요 성분: ' + p.key_ingredients) : null,
+    p.cautions ? el('div', {class: 'muted'}, '주의: ' + p.cautions) : null,
+    p.source_url ? el('a', {href: p.source_url, target: '_blank', rel: 'noopener noreferrer'}, '근거 자료') : null);
+}
+function addMsg(role, text, products = [], warn = false){
+  const m = el('div', {class: 'msg ' + role + (warn ? ' warn' : '')}, text, ...products.map(productCard));
+  $('log').append(m); $('log').scrollTop = $('log').scrollHeight; return m;
+}
+async function loadHistory(){
+  const {messages} = await api('/conversation/history');
+  $('log').replaceChildren();
+  if (!messages.length) addMsg('assistant', '안녕하세요, RUTI예요. 피부 타입과 고민을 알려주시면 함께 살펴볼게요.');
+  messages.forEach(m => addMsg(m.role, m.content, m.products));
+}
+async function loadMems(){
+  const {memories} = await api('/memory');
+  $('mems').replaceChildren(...memories.map(m => el('div', {class: 'mem'}, el('span', {}, m.content),
+    el('button', {class: 'ghost', onclick: async () => { await api('/memory/' + m.id, {method: 'DELETE'}); loadMems(); }}, '삭제'))));
+  if (!memories.length) $('mems').append(el('p', {class: 'muted'}, '아직 저장된 정보가 없어요.'));
+}
+async function start(){
+  try { await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
+  loadHistory(); loadMems();
+}
+
+$('ask').addEventListener('submit', async e => {
+  e.preventDefault();
+  const box = e.target.message, text = box.value.trim(), btn = e.target.querySelector('button');
+  if (!text) return;
+  $('askErr').textContent = ''; box.value = ''; btn.disabled = true;
+  addMsg('user', text);
+  const pending = addMsg('assistant', '답변을 준비하고 있어요…');
+  try {
+    const r = await api('/conversation', {method: 'POST', body: {message: text}});
+    pending.remove();
+    addMsg('assistant', r.answer, r.products, r.status !== 'OK');
+  } catch (err) { pending.remove(); $('askErr').textContent = err.message; if (err.status === 401) location.reload(); }
+  finally { btn.disabled = false; box.focus(); }
+});
+$('ask').message.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('ask').requestSubmit(); } });
+$('memForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api('/memory', {method: 'POST', body: {content: e.target.content.value}}); e.target.reset(); loadMems(); }
+  catch (err) { alert(err.message); }
+});
+$('clear').addEventListener('click', async () => { if (confirm('대화 기록을 모두 지울까요?')) { await api('/conversation/history', {method: 'DELETE'}); loadHistory(); } });
+$('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>
