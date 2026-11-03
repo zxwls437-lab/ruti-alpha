@@ -11,8 +11,8 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from . import ai
-from .config import env_bool, env_int
-from .db import get_db, init_db, utcnow
+from .config import env, env_bool, env_int
+from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, ChatMessage, Memory, Product, User
 from .security import bearer, create_session, current_user, hash_password, limiter, require_admin, revoke_session, verify_password
 from .status import STATUS
@@ -21,9 +21,33 @@ STATIC = Path(__file__).resolve().parent / "static"
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{3,30}$")
 
 
+def bootstrap_admin() -> None:
+    """RUTI_BOOTSTRAP_ADMIN_USERNAME/PASSWORD 환경 변수가 있으면 그 관리자 계정을 보장한다.
+    서버 셸에 접속할 수 없는 클라우드(예: Render 무료)에서 관리자를 만들거나 비밀번호를 재설정할 때 쓴다."""
+    username = env("RUTI_BOOTSTRAP_ADMIN_USERNAME").lower()
+    password = env("RUTI_BOOTSTRAP_ADMIN_PASSWORD")
+    if not username and not password:
+        return
+    if not USERNAME_RE.match(username) or len(password) < 8:
+        print("[RUTI] 관리자 자동 생성 건너뜀: 아이디(영문/숫자 3~30자)와 비밀번호(8자 이상)를 확인하세요.")
+        return
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.username == username))
+        if user is None:
+            db.add(User(username=username, password_hash=hash_password(password), is_admin=True))
+            print(f"[RUTI] 관리자 계정 '{username}'을 만들었습니다.")
+        else:
+            user.is_admin = True
+            if not verify_password(password, user.password_hash):
+                user.password_hash = hash_password(password)
+                print(f"[RUTI] 관리자 계정 '{username}'의 비밀번호를 환경 변수 값으로 바꿨습니다.")
+        db.commit()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    bootstrap_admin()
     yield
 
 

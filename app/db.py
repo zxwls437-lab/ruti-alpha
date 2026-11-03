@@ -12,7 +12,16 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def normalize_url(url: str) -> str:
+    """클라우드가 주는 postgres:// 주소를 설치된 psycopg(3) 드라이버용으로 바꾼다."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def make_engine(url: str):
+    url = normalize_url(url)
     if url.startswith("sqlite"):
         kwargs = {"connect_args": {"check_same_thread": False}}
         # 메모리 DB는 연결마다 새 DB가 생기므로 하나의 연결을 공유해야 한다.

@@ -185,3 +185,25 @@ def test_product_selection_and_parsing():
     assert picked[0]["id"] == 3 and len(picked) == 2
     assert ai.parse_model_output("not json", {1}) == ("not json", [])
     assert ai.needs_safety_hold("얼굴이 붓고 아파요")
+
+
+def test_normalize_db_url():
+    from app.db import normalize_url
+    assert normalize_url("postgres://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert normalize_url("postgresql://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert normalize_url("postgresql+psycopg://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
+    assert normalize_url("sqlite:///./ruti.db") == "sqlite:///./ruti.db"
+
+
+def test_bootstrap_admin(client, monkeypatch):
+    from app.main import bootstrap_admin
+    monkeypatch.setenv("RUTI_BOOTSTRAP_ADMIN_USERNAME", "Boss")
+    monkeypatch.setenv("RUTI_BOOTSTRAP_ADMIN_PASSWORD", "bosspass1")
+    bootstrap_admin()
+    bootstrap_admin()  # 두 번 실행해도 중복 생성 없음
+    login = lambda pw: client.post("/auth/login", json={"username": "boss", "password": pw})
+    assert login("bosspass1").json()["user"]["is_admin"] is True
+    monkeypatch.setenv("RUTI_BOOTSTRAP_ADMIN_PASSWORD", "newbosspass")
+    bootstrap_admin()
+    assert login("bosspass1").status_code == 401
+    assert login("newbosspass").status_code == 200
