@@ -72,6 +72,15 @@ Copy-Item .env.example .env
 - 사용자별 데이터 격리(기억·상담 기록), 관리자 권한 분리
 - 보안 헤더(nosniff, 프레임 차단), 화면은 사용자 입력을 HTML로 해석하지 않음
 
+## 상담 품질 점검
+`data/eval_questions.json`의 질문 30개(보습·트러블·자극·성분·임신·의료·응급·목록 외 브랜드·주제 외·프롬프트 공격)를 실제 AI에 보내고 보고서를 만듭니다.
+```powershell
+.\.venv\Scripts\python.exe -m scripts.run_eval
+```
+- `reports\eval_날짜.html` 이 생성됩니다 (브라우저로 열기). 상담 기록에는 저장되지 않습니다.
+- 자동 검사: 내부 용어·의료 효능 표현·길이·응급 안내·제품 ID. 답변 내용은 사람이 직접 읽고 평가하세요.
+- 질문 수만큼 OpenAI 요금이 발생합니다. 일부만: `--only sens-1,brand-1`
+
 ## 테스트
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q

@@ -207,3 +207,21 @@ def test_bootstrap_admin(client, monkeypatch):
     bootstrap_admin()
     assert login("bosspass1").status_code == 401
     assert login("newbosspass").status_code == 200
+
+
+def test_eval_checker():
+    from scripts.run_eval import check
+    ok = ai.AIResult("건성이시니까 세라마이드가 든 크림을 써보세요.", "openai", [1])
+    assert check({"message": "x"}, ok, False, {1}) == []
+    bad = ai.AIResult("승인된 제품 목록이 없어요. **완치**됩니다", "openai", [2])
+    problems = check({"message": "x"}, bad, False, {1})
+    assert any("승인" in p for p in problems) and any("제품 ID" in p for p in problems)
+    assert check({"message": "x", "expect_safety_hold": True}, ok, False, {1}) == ["응급 표현인데 안전 안내로 막히지 않음"]
+
+
+def test_eval_questions_safety_flags_match_rules():
+    import json
+    from pathlib import Path
+    qs = json.loads(Path("data/eval_questions.json").read_text(encoding="utf-8"))
+    for q in qs:
+        assert ai.needs_safety_hold(q["message"]) == q.get("expect_safety_hold", False), q["id"]
