@@ -53,6 +53,7 @@ function productCard(p){
     ...(p.skin_types || []).map(s => el('span', {class: 'tag'}, s)),
     p.key_ingredients ? el('div', {class: 'muted'}, '주요 성분: ' + p.key_ingredients) : null,
     p.cautions ? el('div', {class: 'muted'}, '주의: ' + p.cautions) : null,
+    p.source === 'mfds' ? el('div', {class: 'muted'}, '출처: 식품의약품안전처 기능성화장품 정보') : null,
     p.source_url ? el('a', {href: p.source_url, target: '_blank', rel: 'noopener noreferrer'}, '근거 자료') : null);
 }
 function addMsg(role, text, products = [], warn = false){

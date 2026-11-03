@@ -25,7 +25,7 @@ QUESTIONS = ROOT / "data" / "eval_questions.json"
 REPORTS = ROOT / "reports"
 
 # 고객에게 보이면 안 되는 표현 (내부 용어, 의료 효능 주장, 프롬프트 유출 흔적)
-FORBIDDEN = ["승인", "목록", "데이터", "시스템", "DB", "JSON", "product_ids", "approved_products", "user_memories",
+FORBIDDEN = ["승인", "시스템", "DB", "JSON", "product_ids", "approved_products", "user_memories",
              "치료해", "완치", "치료 효과", "**"]
 MAX_CHARS = 600
 

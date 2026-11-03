@@ -72,6 +72,27 @@ Copy-Item .env.example .env
 - 사용자별 데이터 격리(기억·상담 기록), 관리자 권한 분리
 - 보안 헤더(nosniff, 프레임 차단), 화면은 사용자 입력을 HTML로 해석하지 않음
 
+## 식약처 공공데이터 (성분 사전 · 기능성 화장품)
+data.go.kr에서 활용 승인을 받은 API로 성분 사전과 기능성 화장품 목록을 만듭니다.
+
+| 데이터셋 이름 | API | .env 변수 |
+|---|---|---|
+| ingredient | 화장품 원료성분정보 | `MFDS_INGREDIENT_URL` |
+| restricted | 화장품 사용제한 원료정보 | `MFDS_RESTRICTED_URL` |
+| functional_report | 기능성화장품 보고품목정보 | `MFDS_FUNCTIONAL_REPORT_URL` |
+| functional_review | 기능성화장품 심사품목 정보 | `MFDS_FUNCTIONAL_REVIEW_URL` |
+| cosmetics_info | 화장품 관련 정보 (원본 저장만) | `MFDS_COSMETICS_INFO_URL` |
+
+1. `.env`에 `DATA_GO_KR_SERVICE_KEY`(일반 인증키 **Decoding**)와 각 API 요청주소(End Point/오퍼레이션)를 넣습니다.
+2. 연결 확인: `python -m scripts.mfds probe ingredient`
+3. 전체 다운로드: `python -m scripts.mfds fetch all` (중단해도 받은 만큼 저장, 다시 실행하면 이어서 갱신)
+4. 변환: `python -m scripts.mfds build` → 확인: `python -m scripts.mfds status`
+
+- 원본은 `mfds_records`에 그대로 보관합니다. 필드 이름이 예상과 다르면 `app/mfds.py`의 `FIELD_CANDIDATES`만 고치고 `build`를 다시 실행하면 됩니다.
+- 식약처 기능성 제품은 공식 출처이므로 자동 승인(`source=mfds`)됩니다. 직접 등록한 제품은 여전히 근거 URL + 관리자 승인이 필요합니다.
+- 상담 시 질문에 나온 성분은 성분 사전에서 찾아 AI에 전달하고(사용제한 원료면 주의 안내), 제품은 DB에서 질문 키워드로 후보를 골라 전달합니다.
+- 출처 표기: 식품의약품안전처, 공공데이터포털(data.go.kr)
+
 ## 상담 품질 점검
 `data/eval_questions.json`의 질문 30개(보습·트러블·자극·성분·임신·의료·응급·목록 외 브랜드·주제 외·프롬프트 공격)를 실제 AI에 보내고 보고서를 만듭니다.
 ```powershell

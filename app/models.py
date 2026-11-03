@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, utcnow
@@ -8,6 +8,8 @@ from .db import Base, utcnow
 PRODUCT_PENDING = "pending"
 PRODUCT_APPROVED = "approved"
 PRODUCT_REJECTED = "rejected"
+SOURCE_MANUAL = "manual"   # 사람이 등록 → 관리자 승인 필요
+SOURCE_MFDS = "mfds"       # 식약처 공공데이터 → 공식 출처라 자동 승인
 
 
 class User(Base):
@@ -49,6 +51,8 @@ class Product(Base):
     cautions: Mapped[str] = mapped_column(Text, default="")
     source_url: Mapped[str] = mapped_column(String(500), default="")
     status: Mapped[str] = mapped_column(String(20), default=PRODUCT_PENDING, index=True)
+    source: Mapped[str] = mapped_column(String(20), default=SOURCE_MANUAL, index=True)
+    external_key: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     review_note: Mapped[str] = mapped_column(Text, default="")
     submitted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -66,6 +70,7 @@ class Product(Base):
             "description": self.description,
             "cautions": self.cautions,
             "source_url": self.source_url,
+            "source": self.source,
         }
 
     def to_admin(self) -> dict:
@@ -89,3 +94,31 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     product_ids: Mapped[str] = mapped_column(String(500), default="")  # "1,2"
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Ingredient(Base):
+    """화장품 성분 사전 (식약처 원료성분정보 + 사용제한 원료정보에서 만든다)."""
+    __tablename__ = "ingredients"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name_ko: Mapped[str] = mapped_column(String(300), index=True)
+    name_en: Mapped[str] = mapped_column(String(300), default="", index=True)
+    cas_no: Mapped[str] = mapped_column(String(200), default="")
+    synonyms: Mapped[str] = mapped_column(Text, default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    restriction: Mapped[str] = mapped_column(Text, default="")  # 비어 있으면 사용제한 원료 아님
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    def to_public(self) -> dict:
+        return {"id": self.id, "name_ko": self.name_ko, "name_en": self.name_en, "cas_no": self.cas_no,
+                "synonyms": self.synonyms, "description": self.description, "restriction": self.restriction}
+
+
+class MfdsRecord(Base):
+    """공공데이터 API에서 받은 원본 그대로. 변환 규칙을 바꿔도 다시 받을 필요가 없게 보관한다."""
+    __tablename__ = "mfds_records"
+    __table_args__ = (UniqueConstraint("dataset", "record_key"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    dataset: Mapped[str] = mapped_column(String(50), index=True)
+    record_key: Mapped[str] = mapped_column(String(200))
+    data: Mapped[str] = mapped_column(Text)  # JSON
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

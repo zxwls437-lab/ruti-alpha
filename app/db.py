@@ -49,3 +49,25 @@ def init_db() -> None:
     from . import models  # noqa: F401  (테이블 등록)
 
     Base.metadata.create_all(engine)
+    add_missing_columns()
+
+
+def add_missing_columns() -> None:
+    """이전 버전 DB에 새로 생긴 열을 추가한다 (간단한 자동 마이그레이션: 열 추가만)."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                col_type = column.type.compile(engine.dialect)
+                default = column.default.arg if column.default is not None and not callable(column.default.arg) else None
+                ddl = f'ALTER TABLE {table.name} ADD COLUMN {column.name} {col_type}'
+                if default is not None:
+                    ddl += " DEFAULT " + (f"'{default}'" if isinstance(default, str) else str(default))
+                conn.execute(text(ddl))

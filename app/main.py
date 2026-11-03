@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import ai
+from . import ai, retrieval
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
-from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, ChatMessage, Memory, Product, User
+from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, Memory, Product, User
 from .security import bearer, create_session, current_user, hash_password, limiter, require_admin, revoke_session, verify_password
 from .status import STATUS
 
@@ -263,9 +263,7 @@ def delete_memory(memory_id: int, user: User = Depends(current_user), db: Sessio
 
 # ---------- 제품 ----------
 
-def _like(text: str) -> str:
-    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
+_like = retrieval.like
 
 
 @app.post("/products/stage", status_code=201, tags=["제품"])
@@ -293,6 +291,20 @@ def search_products(q: str = "", category: str = "", skin_type: str = "", limit:
         stmt = stmt.where(Product.skin_types.ilike(_like(skin_type.strip()), escape="\\"))
     rows = db.scalars(stmt.order_by(Product.id).limit(limit).offset(max(offset, 0))).all()
     return {"products": [r.to_public() for r in rows]}
+
+
+@app.get("/ingredients/search", tags=["성분"])
+def search_ingredients(q: str, limit: int = 20, _user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """성분 사전 검색 (식약처 원료성분정보·사용제한 원료정보)."""
+    q = q.strip()
+    if not q:
+        return {"ingredients": []}
+    pattern = _like(q)
+    stmt = (select(Ingredient)
+            .where(or_(Ingredient.name_ko.ilike(pattern, escape="\\"), Ingredient.name_en.ilike(pattern, escape="\\"),
+                       Ingredient.synonyms.ilike(pattern, escape="\\")))
+            .order_by(func.length(Ingredient.name_ko), Ingredient.id).limit(max(1, min(limit, 100))))
+    return {"ingredients": [i.to_public() for i in db.scalars(stmt).all()]}
 
 
 @app.get("/products/{product_id}", tags=["제품"])
@@ -330,7 +342,7 @@ def _review(product_id: int, new_status: str, note: str, admin: User, db: Sessio
     item = db.get(Product, product_id)
     if not item:
         raise HTTPException(404, "제품을 찾을 수 없습니다.")
-    if new_status == PRODUCT_APPROVED and not item.source_url:
+    if new_status == PRODUCT_APPROVED and item.source == SOURCE_MANUAL and not item.source_url:
         raise HTTPException(400, "근거 자료(source_url)가 없는 제품은 승인할 수 없습니다.")
     item.status, item.review_note = new_status, note
     item.reviewed_by, item.reviewed_at = admin.id, utcnow()
@@ -369,11 +381,13 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
         status_code = "SAFETY_HOLD"
     else:
         memories = list(db.scalars(select(Memory.content).where(Memory.user_id == user.id).order_by(Memory.id.desc()).limit(20)).all())
-        products = [p.to_public() for p in db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED)).all()]
+        limit = env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 30)
+        products = retrieval.candidate_products(db, message, memories, limit)
+        ingredients = retrieval.ingredients_in_text(db, message + " " + " ".join(memories))
         turns = env_int("RUTI_HISTORY_TURNS", 6) * 2
         recent = db.scalars(select(ChatMessage).where(ChatMessage.user_id == user.id).order_by(ChatMessage.id.desc()).limit(turns)).all()
         history = [{"role": m.role, "content": m.content} for m in reversed(recent)]
-        result = ai.generate_answer(message, memories[::-1], products, history)
+        result = ai.generate_answer(message, memories[::-1], products, history, ingredients)
         status_code = "OK" if result.ok else "AI_UNAVAILABLE"
 
     # 상담 기록 저장 (AI 오류 응답은 다음 대화 맥락에 섞이지 않게 저장하지 않음)
