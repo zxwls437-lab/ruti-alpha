@@ -43,7 +43,9 @@ FIELD_CANDIDATES = {
     "cas_no": ["CAS_NO", "CASNO", "CAS"],
     "synonyms": ["INGR_SYNONYM", "SYNONYM", "OTHER_NAME"],
     "description": ["ORIGIN_MAJOR_KOR_NAME", "ORIGIN", "DEFINITION", "INGR_DESC"],
-    "restriction": ["LIMIT_COND", "PROVIS_ATRCL", "LIMIT", "REGULATE_TYPE", "RESTRICT", "NOTICE_INGR_NAME"],
+    "regulate_type": ["REGULATE_TYPE"],
+    "condition": ["LIMIT_COND", "PROVIS_ATRCL", "LIMIT"],
+    "country": ["COUNTRY_NAME", "NATION_NAME", "COUNTRY"],
     "product_name": ["ITEM_NAME", "PRDUCT", "PRDLST_NM", "PRODUCT_NAME", "PRDT_NM"],
     "company": ["ENTP_NAME", "BSSH_NM", "COMPANY_NAME", "MANUF_NAME", "ENTRPS"],
     "effect": ["EFFECT", "EE_DOC_DATA", "EFCY_QESITM", "EFFICACY", "FUNC_TYPE", "COSMETIC_REPORT_TYPE", "ITEM_PERMIT_TYPE"],
@@ -53,7 +55,7 @@ FIELD_CANDIDATES = {
 }
 # 후보에 없을 때 키 이름에 이 글자가 들어가면 사용
 FIELD_PATTERNS = {
-    "name_ko": [("KOR", "NAME")], "name_en": [("ENG", "NAME")], "restriction": [("LIMIT",), ("ATRCL",)],
+    "name_ko": [("KOR", "NAME")], "name_en": [("ENG", "NAME")], "condition": [("LIMIT",), ("ATRCL",)],
     "product_name": [("ITEM", "NAME")], "company": [("ENTP",), ("BSSH",)], "effect": [("EFFECT",), ("EFCY",)],
 }
 
@@ -62,17 +64,33 @@ class MfdsError(Exception):
     pass
 
 
+_EMPTY = {"", "none", "null", "-"}
+
+
+def _value(v) -> str:
+    text = "" if v is None else str(v).strip()
+    return "" if text.lower() in _EMPTY else text
+
+
 def pick(item: dict, field: str) -> str:
     upper = {str(k).upper(): v for k, v in item.items()}
     for key in FIELD_CANDIDATES.get(field, []):
-        value = upper.get(key)
-        if value not in (None, ""):
-            return str(value).strip()
+        value = _value(upper.get(key))
+        if value:
+            return value
     for parts in FIELD_PATTERNS.get(field, []):
-        for key, value in upper.items():
-            if all(p in key for p in parts) and value not in (None, ""):
-                return str(value).strip()
+        for key, raw in upper.items():
+            value = _value(raw)
+            if all(p in key for p in parts) and value:
+                return value
     return ""
+
+
+KOREA_NAMES = ("대한민국", "한국", "국내", "korea")
+
+
+def _is_korea(country: str) -> bool:
+    return any(k in country.lower() for k in KOREA_NAMES)
 
 
 def _find(obj, name: str):
@@ -196,16 +214,29 @@ def build_ingredients(db: Session) -> int:
         if not name:
             continue
         by_name[name] = Ingredient(name_ko=name[:300], name_en=pick(item, "name_en")[:300], cas_no=pick(item, "cas_no")[:200],
-                                   synonyms=pick(item, "synonyms"), description=pick(item, "description"))
+                                   synonyms=pick(item, "synonyms"), description=pick(item, "description"), restriction="")
+    rules: dict[str, list[tuple[bool, str]]] = {}
     for item in records(db, "restricted"):
         name = pick(item, "name_ko")
         if not name:
             continue
-        rule = pick(item, "restriction") or "사용제한 원료"
+        country, kind, cond = pick(item, "country"), pick(item, "regulate_type"), pick(item, "condition")
+        text = " ".join(x for x in (f"[{country}]" if country else "", kind or "사용제한") if x)
+        if cond:
+            text += f" - {cond[:200]}"
+        bucket = rules.setdefault(name, [])
+        if (_is_korea(country), text) not in bucket:
+            bucket.append((_is_korea(country), text))
         ing = by_name.get(name)
         if ing is None:
-            ing = by_name[name] = Ingredient(name_ko=name[:300], name_en=pick(item, "name_en")[:300], cas_no=pick(item, "cas_no")[:200])
-        ing.restriction = (ing.restriction + " / " + rule) if ing.restriction else rule
+            ing = by_name[name] = Ingredient(name_ko=name[:300])
+        ing.name_en = ing.name_en or pick(item, "name_en")[:300]
+        ing.cas_no = ing.cas_no or pick(item, "cas_no")[:200]
+        ing.synonyms = ing.synonyms or pick(item, "synonyms")
+    for name, items in rules.items():
+        # 한국 규정을 맨 앞에
+        ordered = [t for k, t in items if k] + [t for k, t in items if not k]
+        by_name[name].restriction = " / ".join(ordered)[:3000]
     db.execute(delete(Ingredient))
     db.add_all(by_name.values())
     db.commit()

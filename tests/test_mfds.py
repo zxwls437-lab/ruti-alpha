@@ -32,6 +32,7 @@ def test_pick_candidates_and_patterns():
     assert mfds.pick({"ingr_kor_name": " 나이아신아마이드 "}, "name_ko") == "나이아신아마이드"
     assert mfds.pick({"SOMETHING_KOR_NAME": "글리세린"}, "name_ko") == "글리세린"
     assert mfds.pick({"X": ""}, "name_ko") == ""
+    assert mfds.pick({"INGR_ENG_NAME": "None", "ENG_NAME": "Glycerin"}, "name_en") == "Glycerin"
 
 
 def test_fetch_page_reports_xml_error(monkeypatch):
@@ -60,7 +61,11 @@ def seed(client):
             {"INGR_KOR_NAME": "나이아신아마이드", "INGR_ENG_NAME": "Niacinamide", "CAS_NO": "98-92-0", "ORIGIN_MAJOR_KOR_NAME": "비타민 B3 유도체"},
             {"INGR_KOR_NAME": "레티놀", "INGR_ENG_NAME": "Retinol", "ORIGIN_MAJOR_KOR_NAME": "비타민 A"},
         ])
-        mfds.save_records(db, "restricted", [{"INGR_STD_NAME": "레티놀", "LIMIT_COND": "배합 한도 예시"}])
+        mfds.save_records(db, "restricted", [
+            {"INGR_STD_NAME": "레티놀", "COUNTRY_NAME": "EU", "REGULATE_TYPE": "제한", "LIMIT_COND": "배합 한도 예시"},
+            {"INGR_STD_NAME": "레티놀", "COUNTRY_NAME": "대한민국", "REGULATE_TYPE": "제한", "LIMIT_COND": None},
+            {"INGR_STD_NAME": "금지성분", "INGR_ENG_NAME": "Banned", "COUNTRY_NAME": "아세안", "REGULATE_TYPE": "금지", "PROVIS_ATRCL": "None"},
+        ])
         mfds.save_records(db, "functional_report", [
             {"ITEM_SEQ": "A1", "ITEM_NAME": "브라이트닝 세럼", "ENTP_NAME": "가나화장품", "EFFECT": "피부의 미백에 도움"},
         ])
@@ -69,7 +74,7 @@ def seed(client):
             {"ITEM_SEQ": "A1", "ITEM_NAME": "브라이트닝 세럼 리뉴얼", "ENTP_NAME": "가나화장품", "EFFECT": "피부의 미백에 도움"},
         ])
         assert db.query(MfdsRecord).filter_by(dataset="functional_report").count() == 1
-        assert mfds.build_ingredients(db) == 2
+        assert mfds.build_ingredients(db) == 3
         assert mfds.build_products(db) == 1
         assert mfds.build_products(db) == 1  # 다시 변환해도 중복 없음
         assert db.query(Product).filter_by(source="mfds").count() == 1
@@ -80,7 +85,9 @@ def test_build_and_search(client):
     h = signup(client)
     with SessionLocal() as db:
         retinol = db.query(Ingredient).filter_by(name_ko="레티놀").one()
-        assert retinol.restriction == "배합 한도 예시" and retinol.description == "비타민 A"
+        assert retinol.restriction == "[대한민국] 제한 / [EU] 제한 - 배합 한도 예시" and retinol.description == "비타민 A"
+        banned = db.query(Ingredient).filter_by(name_ko="금지성분").one()
+        assert banned.restriction == "[아세안] 금지" and banned.name_en == "Banned"
     found = client.get("/ingredients/search", headers=h, params={"q": "niacin"}).json()["ingredients"]
     assert [i["name_ko"] for i in found] == ["나이아신아마이드"]
     prods = client.get("/products/search", headers=h, params={"q": "미백"}).json()["products"]
@@ -104,7 +111,7 @@ def test_conversation_uses_ingredients_and_mfds_products(client, monkeypatch):
     r = client.post("/conversation", headers=admin, json={"message": "레티놀이랑 미백 세럼 같이 써도 돼?"}).json()
     data = next(m["content"] for m in captured["body"]["messages"] if "<ingredient_info>" in m["content"] and "</ingredient_info>" in m["content"])
     info = json.loads(data.split("<ingredient_info>")[1].split("</ingredient_info>")[0])
-    assert [i["name_ko"] for i in info] == ["레티놀"] and info[0]["restriction"] == "배합 한도 예시"
+    assert [i["name_ko"] for i in info] == ["레티놀"] and info[0]["restriction"].startswith("[대한민국] 제한")
     assert r["products"][0]["source"] == "mfds"
 
 

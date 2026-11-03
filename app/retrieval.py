@@ -106,5 +106,6 @@ def ingredients_in_text(db: Session, text: str, limit: int = 5) -> list[dict]:
         d = rows[iid].to_public()
         d["description"] = d["description"][:400]
         d["synonyms"] = d["synonyms"][:200]
+        d["restriction"] = d["restriction"][:600]
         result.append(d)
     return result
