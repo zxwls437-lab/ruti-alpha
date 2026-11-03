@@ -1,0 +1,22 @@
+[
+  {
+    "name": "[예시] 세라마이드 보습 크림",
+    "brand": "예시브랜드",
+    "category": "크림",
+    "skin_types": ["건성", "복합성"],
+    "key_ingredients": "세라마이드, 판테놀, 글리세린",
+    "description": "이 항목은 형식 예시입니다. 실제 제품 정보로 바꿔서 사용하세요.",
+    "cautions": "사용 중 붉어짐·가려움이 있으면 사용을 중단하세요.",
+    "source_url": "https://example.com/replace-with-official-product-page"
+  },
+  {
+    "name": "[예시] 약산성 젤 클렌저",
+    "brand": "예시브랜드",
+    "category": "클렌저",
+    "skin_types": ["지성", "민감성"],
+    "key_ingredients": "",
+    "description": "형식 예시입니다. 근거 자료(source_url)가 없으면 관리자 승인이 막힙니다.",
+    "cautions": "",
+    "source_url": ""
+  }
+]

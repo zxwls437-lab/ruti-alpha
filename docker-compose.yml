@@ -1,0 +1,22 @@
+# 로컬에서 운영과 비슷하게 (PostgreSQL + 앱) 실행:  docker compose up --build
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ruti
+      POSTGRES_PASSWORD: ruti-local-only
+      POSTGRES_DB: ruti
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://ruti:ruti-local-only@db:5432/ruti
+    depends_on:
+      - db
+volumes:
+  pgdata:
