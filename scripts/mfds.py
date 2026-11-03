@@ -1,7 +1,8 @@
 """식약처 공공데이터 가져오기 도구.
 
 사용법 (PowerShell, RUTI 폴더에서):
-  python -m scripts.mfds probe 데이터셋       API 연결 확인 + 필드 이름 보기 (저장 안 함)
+  python -m scripts.mfds probe all            5개 API 연결 한꺼번에 확인 + 필드 이름 보기 (저장 안 함)
+  python -m scripts.mfds probe 데이터셋       하나만 확인
   python -m scripts.mfds fetch 데이터셋       전체 다운로드 → 원본 저장   (--max-pages 5 로 일부만)
   python -m scripts.mfds fetch all            .env에 주소가 있는 데이터셋 전부
   python -m scripts.mfds build                원본 → 성분 사전 / 기능성 제품으로 변환
@@ -14,7 +15,6 @@ import sys
 
 from sqlalchemy import func, select
 
-from app.config import env
 from app.db import SessionLocal, init_db
 from app.mfds import DATASETS, MfdsError, build_ingredients, build_products, fetch_page, iter_pages, save_records
 from app.models import SOURCE_MFDS, Ingredient, MfdsRecord, Product
@@ -31,17 +31,33 @@ def probe(dataset: str) -> None:
         print(f"  {k}: {str(v)[:60]!r}")
 
 
+def probe_all() -> None:
+    ok = 0
+    for d in DATASETS:
+        print("=" * 60)
+        try:
+            probe(d)
+            ok += 1
+        except MfdsError as e:
+            print(f"[{DATASETS[d][1]}] 실패: {e}")
+    print("=" * 60)
+    print(f"연결 성공 {ok}/{len(DATASETS)}")
+
+
 def fetch(dataset: str, max_pages: int) -> None:
-    targets = [d for d in DATASETS if env(DATASETS[d][0])] if dataset == "all" else [dataset]
-    if not targets:
-        raise MfdsError(".env에 요청주소(MFDS_..._URL)가 하나도 없습니다.")
+    targets = list(DATASETS) if dataset == "all" else [dataset]
     with SessionLocal() as db:
         for d in targets:
             saved = 0
-            for page, total, items in iter_pages(d, 100, max_pages):
-                saved += save_records(db, d, items)
-                print(f"\r[{DATASETS[d][1]}] {saved:,} / {total:,}", end="", flush=True)
-            print(f"\n[{DATASETS[d][1]}] 저장 완료 {saved:,}건")
+            try:
+                for page, total, items in iter_pages(d, 100, max_pages):
+                    saved += save_records(db, d, items)
+                    print(f"\r[{DATASETS[d][1]}] {saved:,} / {total:,}", end="", flush=True)
+                print(f"\n[{DATASETS[d][1]}] 저장 완료 {saved:,}건")
+            except MfdsError as e:
+                if len(targets) == 1:
+                    raise
+                print(f"\n[{DATASETS[d][1]}] 실패 ({saved:,}건까지 저장됨): {e}")
 
 
 def build() -> None:
@@ -71,7 +87,9 @@ def main() -> None:
         del args[i:i + 2]
     init_db()
     try:
-        if len(args) == 2 and args[0] == "probe":
+        if args == ["probe", "all"]:
+            probe_all()
+        elif len(args) == 2 and args[0] == "probe":
             probe(args[1])
         elif len(args) == 2 and args[0] == "fetch":
             fetch(args[1], max_pages)

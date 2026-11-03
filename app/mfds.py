@@ -24,7 +24,15 @@ DATASETS = {
     "restricted": ("MFDS_RESTRICTED_URL", "화장품 사용제한 원료정보"),
     "functional_report": ("MFDS_FUNCTIONAL_REPORT_URL", "기능성화장품 보고품목정보"),
     "functional_review": ("MFDS_FUNCTIONAL_REVIEW_URL", "기능성화장품 심사품목 정보"),
-    "cosmetics_info": ("MFDS_COSMETICS_INFO_URL", "화장품 관련 정보"),
+    "cosmetics_info": ("MFDS_COSMETICS_INFO_URL", "화장품 관련 정보 (제조업체)"),
+}
+# data.go.kr 상세 페이지의 End Point. .env에 같은 이름의 값이 있으면 그 값을 쓴다.
+DEFAULT_URLS = {
+    "ingredient": "https://apis.data.go.kr/1471000/CsmtcsIngdCpntInfoService01",
+    "restricted": "https://apis.data.go.kr/1471000/CsmtcsUseRstrcInfoService",
+    "functional_report": "https://apis.data.go.kr/1471000/FtnltCosmRptPrdlstInfoService01",
+    "functional_review": "https://apis.data.go.kr/1471057/FtnltCosmSrngPrdlstInfoService05",
+    "cosmetics_info": "https://apis.data.go.kr/1471000/CsmtcsMfcrtrInfoService02",
 }
 
 # 필드 후보 (대문자 비교). 앞에 있을수록 우선.
@@ -104,7 +112,7 @@ def dataset_url(dataset: str) -> str:
     if dataset not in DATASETS:
         raise MfdsError(f"알 수 없는 데이터셋: {dataset} (가능: {', '.join(DATASETS)})")
     var, label = DATASETS[dataset]
-    url = env(var)
+    url = env(var) or DEFAULT_URLS.get(dataset, "")
     if not url:
         raise MfdsError(f".env에 {var}(={label} End Point 주소)를 입력하세요.")
     return complete_url(url)
