@@ -150,3 +150,10 @@ def test_add_missing_columns(tmp_path):
     assert {"source", "external_key", "status"} <= cols
     with eng.connect() as c:
         assert c.execute(sa.text("SELECT source FROM products")).scalar() == "manual"
+
+
+def test_complete_url():
+    base = "https://apis.data.go.kr/1471000/CsmtcsIngdCpntInfoService01"
+    assert mfds.complete_url(base) == base + "/getCsmtcsIngdCpntInfoService01"
+    assert mfds.complete_url(base + "/") == base + "/getCsmtcsIngdCpntInfoService01"
+    assert mfds.complete_url(base + "/getOther") == base + "/getOther"

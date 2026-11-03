@@ -106,8 +106,18 @@ def dataset_url(dataset: str) -> str:
     var, label = DATASETS[dataset]
     url = env(var)
     if not url:
-        raise MfdsError(f".env에 {var}(={label} 요청주소)를 입력하세요.")
-    return url
+        raise MfdsError(f".env에 {var}(={label} End Point 주소)를 입력하세요.")
+    return complete_url(url)
+
+
+def complete_url(url: str) -> str:
+    """End Point만 적었으면 식약처 규칙대로 오퍼레이션을 붙인다.
+    예: .../CsmtcsIngdCpntInfoService01 → .../CsmtcsIngdCpntInfoService01/getCsmtcsIngdCpntInfoService01"""
+    url = url.strip().rstrip("/").split("?")[0]
+    last = url.rsplit("/", 1)[-1]
+    if last.lower().startswith("get"):
+        return url
+    return f"{url}/get{last}"
 
 
 def fetch_page(dataset: str, page: int, rows: int) -> tuple[list[dict], int]:
