@@ -69,7 +69,7 @@ Copy-Item .env.example .env
 - 글 종류: 질문 · 이야기 · **유튜브 영상 공유**(youtube.com·youtu.be·쇼츠 링크만, 영상은 저장하지 않고 공식 썸네일·임베드 주소 사용)
 - 영상 글은 **협찬·광고 포함 여부 선택 필수** → "광고 포함" 표시
 - 관련 제품명을 적으면 RUTI에 전성분이 있는 경우 **보는 사람 피부 기준 판정**(🟢🟡🔴) 표시
-- 나와 비슷한 피부 글만 보기, 의약품 표현 감지·안내, 댓글, 도움돼요, 신고(3건 자동 숨김) → 관리자 `/admin/community`
+- 나와 비슷한 피부 글만 보기, 의약품 표현 감지·안내, 댓글, 도움돼요, 신고(3건 자동 숨김) → 관리자 화면 "커뮤니티 관리"에서 숨김·복구·삭제
 - 탈퇴 시 글·댓글·투표 삭제, 내 데이터 내려받기에 포함
 - API: `GET·POST /community/posts`, `GET·DELETE /community/posts/{id}`, `POST /community/posts/{id}/comments`, `DELETE /community/comments/{id}`, `POST /community/posts/{id}/helpful`, `POST /community/{posts|comments}/{id}/report`
 

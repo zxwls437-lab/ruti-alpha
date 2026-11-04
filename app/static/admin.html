@@ -35,6 +35,12 @@
       <div id="rvList"></div>
     </section>
     <section class="card">
+      <h2>커뮤니티 관리</h2>
+      <p class="muted">글·댓글은 신고 3건이 쌓이면 자동으로 숨겨져요.</p>
+      <div class="tabs" id="cmTabs"></div>
+      <div id="cmList"></div>
+    </section>
+    <section class="card">
       <h2>AI 사용량 (최근 7일)</h2>
       <p class="muted">비용은 .env의 단가 기준 추정치예요. 캐시 적중은 AI를 부르지 않아 비용이 없어요.</p>
       <div id="usageTotal" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
@@ -118,6 +124,26 @@ async function loadReviews(){
       el('button', {class: 'danger', onclick: () => act(r.id, 'delete')}, '삭제')))));
   if (!reviews.length) $('rvList').append(el('p', {class: 'muted'}, '해당하는 후기가 없어요.'));
 }
+const CM_TABS = {reported: '신고됨', hidden: '숨김', medical: '의약품 표현'};
+let cmTab = 'reported';
+async function loadCommunity(){
+  $('cmTabs').replaceChildren(...Object.entries(CM_TABS).map(([k, v]) =>
+    el('button', {class: k === cmTab ? '' : 'ghost', onclick: () => { cmTab = k; loadCommunity(); }}, v)));
+  const {items} = await api('/admin/community?status=' + cmTab);
+  const act = async (it, action) => {
+    if (action === 'delete' && !confirm('삭제할까요? 되돌릴 수 없어요.')) return;
+    await api(`/admin/community/${it.target}/${it.id}/${action}`, {method: 'POST'}); loadCommunity();
+  };
+  $('cmList').replaceChildren(...items.map(it => el('div', {class: 'item'},
+    el('span', {class: 'tag'}, it.target === 'post' ? '글' : '댓글'), ' ', el('strong', {}, it.title || `#${it.id}`), ' ',
+    it.hidden ? el('span', {class: 'tag'}, '숨김') : null, it.medical_claim ? el('span', {class: 'tag'}, '의약품 표현') : null,
+    el('p', {style: 'margin:8px 0;white-space:pre-wrap'}, it.body),
+    it.report_count ? el('div', {class: 'muted'}, `신고 ${it.report_count}건: ${it.report_reasons.join(' / ')}`) : null,
+    el('div', {class: 'actions'},
+      it.hidden ? el('button', {onclick: () => act(it, 'restore')}, '복구') : el('button', {class: 'ghost', onclick: () => act(it, 'hide')}, '숨기기'),
+      el('button', {class: 'danger', onclick: () => act(it, 'delete')}, '삭제')))));
+  if (!items.length) $('cmList').append(el('p', {class: 'muted'}, '해당하는 글이 없어요.'));
+}
 async function loadUsage(){
   const {items, total} = await api('/admin/llm-usage?days=7');
   const won = usd => '$' + usd.toFixed(4);
@@ -137,7 +163,7 @@ async function start(){
   if (me.needs_consent && me.needs_consent.length && !me.is_admin) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
-  $('app').classList.remove('hidden'); load(); loadReviews(); loadUsage();
+  $('app').classList.remove('hidden'); load(); loadReviews(); loadCommunity(); loadUsage();
 }
 $('addForm').addEventListener('submit', async e => {
   e.preventDefault(); $('addErr').textContent = '';
