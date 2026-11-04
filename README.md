@@ -75,6 +75,7 @@ Copy-Item .env.example .env
 - 도움돼요(1인 1회), 신고(3건이면 자동 숨김) → 관리자 `/admin/reviews` 에서 숨김·복구·삭제
 - API: `POST /reviews`, `GET /reviews?product=&similar=&sort=`, `GET /reviews/summary`, `GET /reviews/mine`, `DELETE /reviews/{id}`, `POST /reviews/{id}/helpful`, `POST /reviews/{id}/report`
 - 웹: 전성분 분석 결과 아래 "이 제품 후기" (통계, 목록, 쓰기, 도움돼요, 신고)
+- **AI 반영**: 상담 질문이나 분석한 제품명에 후기가 충분한 제품이 나오면 통계를 `<review_stats>`로 AI에 전달. "RUTI 사용자 N명의 경험"으로만 말하고 효능 근거로 쓰지 않도록 지시
 
 ## 회원 정보·동의 (`app/account.py`)
 - 회원가입: 아이디·비밀번호·**이름**(필수), 닉네임(선택, 비우면 "촉촉한토너123"처럼 자동 생성), **동의**

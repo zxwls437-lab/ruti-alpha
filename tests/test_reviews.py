@@ -141,3 +141,33 @@ def test_my_reviews_delete_and_account_deletion(client):
     client.request("DELETE", "/me", headers=h, json={"password": "password123"})
     with SessionLocal() as db:
         assert db.query(Review).count() == 0 and db.query(ReviewVote).count() == 0
+
+
+def test_review_stats_reach_ai(client, monkeypatch):
+    for i in range(5):
+        h = user_with_skin(client, f"stat{i}", ["건성 피부"])
+        scan_image(client, h, monkeypatch, n=40 + i)
+        client.post("/reviews", headers=h, json=body(felt_moisture=i < 4))
+    viewer = user_with_skin(client, "asker", ["건성"])
+    captured = []
+
+    def fake_post(url, json, headers, timeout):
+        captured.append(json)
+        return FakeResponse(200, {"choices": [{"message": {"content": '{"answer": "좋아요", "product_ids": []}'}}]})
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", fake_post)
+    client.post("/conversation", headers=viewer, json={"message": "라운드랩 자작나무 수분 크림 어때요?"})
+    data = next(m["content"] for m in captured[-1]["messages"] if "</review_stats>" in m["content"])
+    stats = json.loads(data.split("<review_stats>")[1].split("</review_stats>")[0])
+    assert stats[0]["overall"]["moisture_pct"] == 80 and stats[0]["similar_skin"]["n"] == 5
+    # 후기가 없는 제품 이야기에는 통계를 붙이지 않음
+    client.post("/conversation", headers=viewer, json={"message": "선크림 추천해 주세요 아무거나요"})
+    assert not any("</review_stats>" in m["content"] for m in captured[-1]["messages"])
+    # 전성분 결과 설명에도 반영
+    sid = client.post("/scan/text", headers=viewer, json={"text": "정제수, 글리세린, 판테놀", "product_name": "라운드랩 자작나무 수분 크림"}).json()["id"]
+    captured.clear()
+    monkeypatch.setattr(scan.httpx, "post", lambda url, json, headers, timeout: (captured.append(json), FakeResponse(200, {"choices": [{"message": {"content": '{"summary": "좋아요", "points": []}'}}]}))[1])
+    e = client.post(f"/scan/{sid}/explain", headers=viewer).json()
+    assert e["review_stats"][0]["overall"]["n"] == 5
+    assert "review_stats" in captured[0]["messages"][1]["content"]

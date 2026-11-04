@@ -144,6 +144,28 @@ def write_review(payload: ReviewIn, user: User = Depends(current_user), db: Sess
     return {"created": created, "review": _public(review, user, user, set()), "notices": notices}
 
 
+# ---------- AI에 넘길 후기 통계 ----------
+
+def reviews_in_text(db: Session, user: User, text: str, limit: int = 2) -> list[dict]:
+    """질문(또는 분석한 제품명)에 등장하는 제품의 후기 통계. 집계 가능한(표본 충분) 것만 돌려준다."""
+    key = name_key("", text)
+    if len(key) < 6:
+        return []
+    found, seen = [], set()
+    for brand, product in db.execute(select(Review.brand, Review.product_name).where(Review.hidden.is_(False)).distinct()):
+        only = name_key("", product)
+        if len(only) < 6 or only in seen or only not in key:
+            continue
+        seen.add(only)
+        s = summary_data(db, user, brand, product)
+        if s["overall"]["enough"]:
+            found.append({"product": f"{brand} {product}".strip(), "overall": s["overall"],
+                          "similar_skin": {k: v for k, v in s["similar"].items() if k != "my_skin_tags"}})
+        if len(found) >= limit:
+            break
+    return found
+
+
 # ---------- 조회 ----------
 
 @router.get("/reviews")
@@ -176,6 +198,10 @@ def _stats(rows: list[Review]) -> dict:
 @router.get("/reviews/summary")
 def review_summary(product: str, brand: str = "", user: User = Depends(current_user), db: Session = Depends(get_db)):
     """인증·비협찬·의약품 표현 없는 후기만 집계. 표본이 5개 미만이면 비율을 숨긴다."""
+    return summary_data(db, user, brand, product)
+
+
+def summary_data(db: Session, user: User, brand: str, product: str) -> dict:
     rows = db.scalars(select(Review).where(product_filter(brand, product), Review.hidden.is_(False))).all()
     counted = [r for r in rows if _counts_for_stats(r)]
     mine = set(_my_tags(db, user))
