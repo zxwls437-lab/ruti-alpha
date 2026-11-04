@@ -17,7 +17,8 @@ def seed_ingredients():
     with SessionLocal() as db:
         db.add_all([
             Ingredient(name_ko="정제수", name_en="Water"),
-            Ingredient(name_ko="글리세린", name_en="Glycerin"),
+            Ingredient(name_ko="글리세린", name_en="Glycerin", restriction="[중국] 제한 - 다이에틸렌글라이콜 0.1% 이하 / [아세안] 제한 - 불순물 기준"),
+            Ingredient(name_ko="살리실릭애씨드", name_en="Salicylic Acid", restriction="[대한민국] 배합한도 - 씻어내는 제품 2% / [EU] 제한 - 3%"),
             Ingredient(name_ko="1,2-헥산다이올", name_en="1,2-Hexanediol"),
             Ingredient(name_ko="나이아신아마이드", name_en="Niacinamide", description="비타민 B3"),
             Ingredient(name_ko="향료", name_en="Fragrance"),
@@ -48,13 +49,23 @@ def test_analyze_flags(client):
                          ["건성 피부", "향료에 민감해요"])
     by = {i["input"]: i for i in r["items"]}
     assert by["정제수"]["flags"] == [] and by["정제수"]["match"] == "exact"
+    assert by["글리세린"]["flags"] == ["foreign_regulated"]  # 해외 불순물 기준만 있는 성분은 경고가 아님
     assert by["향료(리모넨)"]["ingredient"]["name_ko"] == "향료" and "memory_conflict" in by["향료(리모넨)"]["flags"]
-    assert {"restricted", "restricted_kr"} <= set(by["하이드로퀴논"]["flags"])
-    assert by["레티놀"]["flags"] == ["restricted"]
+    assert by["하이드로퀴논"]["flags"] == ["kr_ban"]
+    assert by["레티놀"]["flags"] == ["foreign_regulated"]
     assert by["나이아신아마이드드"]["match"] == "fuzzy" and "check_spelling" in by["나이아신아마이드드"]["flags"]
     assert by["1,3-Butanediol"]["ingredient"]["name_ko"] == "부틸렌글라이콜"
     assert by["알수없는성분"]["ingredient"] is None
-    assert r["summary"] == {"total": 8, "matched": 7, "restricted": 2, "restricted_kr": 1, "memory_conflict": 1, "unknown": 1}
+    assert r["summary"] == {"total": 8, "matched": 7, "kr_ban": 1, "kr_limit": 0, "foreign_regulated": 2, "memory_conflict": 1, "unknown": 1}
+
+
+def test_classify_restriction():
+    assert scan.classify_restriction("") is None
+    assert scan.classify_restriction("[대한민국] 금지 / [EU] 금지") == "kr_ban"
+    assert scan.classify_restriction("[EU] 금지 / [대한민국] 배합한도 - 2%") == "kr_limit"
+    assert scan.classify_restriction("[중국] 제한 - 불순물") == "foreign"
+    with SessionLocal() as db:
+        pass
 
 
 # ---------- 글자 붙여넣기 API ----------
@@ -66,7 +77,7 @@ def test_text_scan_api_and_history(client):
     r = client.post("/scan/text", headers=a, json={"text": "정제수, 향료, 하이드로퀴논", "product_name": "테스트 크림"})
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data["summary"]["restricted_kr"] == 1 and data["summary"]["memory_conflict"] == 1
+    assert data["summary"]["kr_ban"] == 1 and data["summary"]["memory_conflict"] == 1
     hist = client.get("/scan/history", headers=a).json()["scans"]
     assert hist[0]["product_name"] == "테스트 크림" and hist[0]["summary"]["total"] == 3
     sid = data["id"]
@@ -96,8 +107,8 @@ def test_image_scan_without_key(client):
     assert r.status_code == 503 and "붙여넣어" in r.json()["detail"]
 
 
-def ocr_response(names, is_list=True, note=""):
-    content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note}, ensure_ascii=False)
+def ocr_response(names, is_list=True, note="", readability="clear"):
+    content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note, "readability": readability}, ensure_ascii=False)
     return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
 
 
@@ -137,3 +148,15 @@ def test_image_scan_daily_limit(client, monkeypatch):
     assert client.post("/scan/image", headers=h, json={"image": JPEG_URL}).status_code == 429
     # 글자 붙여넣기는 제한 없음
     assert client.post("/scan/text", headers=h, json={"text": "정제수"}).status_code == 200
+
+
+def test_image_scan_readability(client, monkeypatch):
+    seed_ingredients()
+    h = signup(client)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", lambda *a, **k: ocr_response(["정제수", "글리세린"], readability="partial"))
+    r = client.post("/scan/image", headers=h, json={"image": JPEG_URL})
+    assert r.status_code == 200 and r.json()["readability"] == "partial"
+    monkeypatch.setattr(scan.httpx, "post", lambda *a, **k: ocr_response(["정제수"], readability="poor"))
+    r = client.post("/scan/image", headers=h, json={"image": base64.b64encode(PNG).decode()})
+    assert r.status_code == 422 and "가까이서" in r.json()["detail"]
