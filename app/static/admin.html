@@ -29,6 +29,12 @@
       <div id="list"></div>
     </section>
     <section class="card">
+      <h2>후기 관리</h2>
+      <p class="muted">신고 3건이 쌓이면 자동으로 숨겨져요. 복구하면 신고 기록이 지워져요.</p>
+      <div class="tabs" id="rvTabs"></div>
+      <div id="rvList"></div>
+    </section>
+    <section class="card">
       <h2>AI 사용량 (최근 7일)</h2>
       <p class="muted">비용은 .env의 단가 기준 추정치예요. 캐시 적중은 AI를 부르지 않아 비용이 없어요.</p>
       <div id="usageTotal" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
@@ -91,6 +97,27 @@ async function load(){
   }));
   if (!products.length) $('list').append(el('p', {class: 'muted'}, '해당하는 제품이 없어요.'));
 }
+const RV_TABS = {reported: '신고됨', hidden: '숨김', medical: '의약품 표현', all: '전체'};
+let rvTab = 'reported';
+async function loadReviews(){
+  $('rvTabs').replaceChildren(...Object.entries(RV_TABS).map(([k, v]) =>
+    el('button', {class: k === rvTab ? '' : 'ghost', onclick: () => { rvTab = k; loadReviews(); }}, v)));
+  const {reviews} = await api('/admin/reviews?status=' + rvTab);
+  const act = async (id, action) => {
+    if (action === 'delete' && !confirm('이 후기를 삭제할까요? 되돌릴 수 없어요.')) return;
+    await api(`/admin/reviews/${id}/${action}`, {method: 'POST'}); loadReviews();
+  };
+  $('rvList').replaceChildren(...reviews.map(r => el('div', {class: 'item'},
+    el('strong', {}, `#${r.id} ${r.product_name}`), ' ', '★'.repeat(r.rating), ' ',
+    r.hidden ? el('span', {class: 'tag'}, '숨김') : null, r.medical_claim ? el('span', {class: 'tag'}, '의약품 표현') : null,
+    r.sponsored ? el('span', {class: 'tag'}, '광고 포함') : null, r.verified ? el('span', {class: 'tag'}, '사진 인증') : null,
+    el('p', {style: 'margin:8px 0'}, r.text),
+    r.report_count ? el('div', {class: 'muted'}, `신고 ${r.report_count}건: ${r.report_reasons.join(' / ')}`) : null,
+    el('div', {class: 'actions'},
+      r.hidden ? el('button', {onclick: () => act(r.id, 'restore')}, '복구') : el('button', {class: 'ghost', onclick: () => act(r.id, 'hide')}, '숨기기'),
+      el('button', {class: 'danger', onclick: () => act(r.id, 'delete')}, '삭제')))));
+  if (!reviews.length) $('rvList').append(el('p', {class: 'muted'}, '해당하는 후기가 없어요.'));
+}
 async function loadUsage(){
   const {items, total} = await api('/admin/llm-usage?days=7');
   const won = usd => '$' + usd.toFixed(4);
@@ -110,7 +137,7 @@ async function start(){
   if (me.needs_consent && me.needs_consent.length && !me.is_admin) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
-  $('app').classList.remove('hidden'); load(); loadUsage();
+  $('app').classList.remove('hidden'); load(); loadReviews(); loadUsage();
 }
 $('addForm').addEventListener('submit', async e => {
   e.preventDefault(); $('addErr').textContent = '';

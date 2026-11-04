@@ -76,7 +76,8 @@ const RUTI = {
   // 동의 기록이 없는(또는 철회한) 필수 항목이 있으면 동의 창을 먼저 띄운다.
   afterLogin(user, onReady){
     const missing = (user && user.needs_consent) || [];
-    if (!missing.length) return onReady(user);
+    // 관리자 화면에서는 운영자 계정에 동의 창을 띄우지 않는다 (상담·분석 화면에서는 띄움)
+    if (!missing.length || (user.is_admin && location.pathname === '/admin')) return onReady(user);
     const err = RUTI.el('div', {class: 'error'});
     const card = RUTI.el('form', {class: 'card stack', style: 'max-width:420px;margin:0'},
       RUTI.el('h2', {}, '동의가 필요해요'),
