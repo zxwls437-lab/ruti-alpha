@@ -11,6 +11,7 @@ from app.db import Base, SessionLocal, engine
 from app.main import app
 from app.models import User
 from app.retrieval import ingredient_names
+from app.scan import index as scan_index
 from app.security import limiter
 
 
@@ -20,6 +21,7 @@ def client():
     Base.metadata.create_all(engine)
     limiter.reset()
     ingredient_names.reset()
+    scan_index.reset()
     with TestClient(app) as c:
         yield c
 

@@ -14,7 +14,7 @@
 .mem button{padding:2px 8px;font-size:12px}
 .auth{max-width:380px;margin:40px auto}
 </style></head><body>
-<nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/admin">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/admin">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
   <form class="card auth stack hidden" id="authForm">
     <h2>로그인</h2>
@@ -100,6 +100,7 @@ $('memForm').addEventListener('submit', async e => {
 });
 $('clear').addEventListener('click', async () => { if (confirm('대화 기록을 모두 지울까요?')) { await api('/conversation/history', {method: 'DELETE'}); loadHistory(); } });
 $('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
+try { const q = sessionStorage.getItem('ruti_prefill'); if (q) { $('ask').message.value = q; sessionStorage.removeItem('ruti_prefill'); } } catch {}
 RUTI.bindAuth($('authForm'), start);
 start();
 </script></body></html>

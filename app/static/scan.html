@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUTI 성분 분석</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.auth{max-width:380px;margin:40px auto}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1}
+.drop{display:block;border:2px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop img{max-width:100%;max-height:260px;border-radius:10px;display:block;margin:0 auto 8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}
+.chip{padding:6px 10px;border-radius:20px;font-size:13px;font-weight:600;background:var(--soft);color:var(--brand)}
+.chip.red{background:#fde8e8;color:#b4232c}.chip.orange{background:#fff1dc;color:#9a5b00}.chip.gray{background:var(--bg);color:var(--muted)}
+@media (prefers-color-scheme:dark){.chip.red{background:#4a1d20;color:#ff9aa1}.chip.orange{background:#46331a;color:#ffc874}}
+.ing{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.ing.red{border-color:#e6a1a6}.ing.orange{border-color:#e9c27e}
+.ing .head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ing .no{color:var(--muted);font-size:12px;min-width:22px}
+.ing details{margin-top:6px;font-size:13px;color:var(--muted)}.ing summary{cursor:pointer}
+.t{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600}
+.t.red{background:#fde8e8;color:#b4232c}.t.orange{background:#fff1dc;color:#9a5b00}.t.green{background:var(--soft);color:var(--brand)}.t.gray{background:var(--bg);color:var(--muted)}
+@media (prefers-color-scheme:dark){.t.red{background:#4a1d20;color:#ff9aa1}.t.orange{background:#46331a;color:#ffc874}}
+.hist{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.notice{font-size:13px;color:var(--muted);background:var(--bg);padding:10px 12px;border-radius:10px;margin-top:10px}
+</style></head><body>
+<nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan" class="on">성분 분석</a><a href="/admin">관리자</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>로그인</h2>
+    <input name="username" placeholder="아이디" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <h2>전성분 분석</h2>
+      <p class="muted">화장품 뒷면의 전성분을 찍거나 붙여넣으면 식약처 성분 정보와 내 피부 정보로 확인해 드려요.</p>
+      <div class="tabs"><button type="button" id="tabPhoto">📷 사진</button><button type="button" id="tabText" class="ghost">⌨️ 글자 입력</button></div>
+      <form id="photoForm" class="stack">
+        <label class="drop" id="drop"><input type="file" id="file" accept="image/*" capture="environment" hidden>
+          <span id="dropText">여기를 눌러 전성분 사진을 찍거나 선택하세요<br><small>성분 목록이 화면에 꽉 차게, 흔들리지 않게 찍어 주세요</small></span></label>
+        <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
+        <button id="photoBtn" disabled>분석하기</button>
+      </form>
+      <form id="textForm" class="stack hidden">
+        <textarea name="text" rows="5" maxlength="10000" placeholder="예) 정제수, 글리세린, 부틸렌글라이콜, 나이아신아마이드, 향료" required></textarea>
+        <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
+        <button>분석하기</button>
+      </form>
+      <div class="error" id="err"></div>
+      <p class="notice">사진은 분석 후 저장하지 않아요. 얼굴이나 개인정보가 찍히지 않게 해 주세요. 분석 결과는 참고용이며, 피부 이상이 있으면 사용을 멈추고 전문가와 상담하세요.</p>
+    </section>
+
+    <section class="card hidden" id="resultCard">
+      <div class="row"><h2 style="margin:0" id="resultTitle">분석 결과</h2><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
+      <div class="chips" id="chips"></div>
+      <div id="items"></div>
+      <p class="muted">출처: 식품의약품안전처 화장품 원료성분정보·사용제한 원료정보 (공공데이터포털)</p>
+    </section>
+
+    <section class="card">
+      <h2>최근 분석</h2>
+      <div id="history"></div>
+    </section>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+let imageData = null, current = null;
+
+function setTab(photo){
+  $('photoForm').classList.toggle('hidden', !photo); $('textForm').classList.toggle('hidden', photo);
+  $('tabPhoto').className = photo ? '' : 'ghost'; $('tabText').className = photo ? 'ghost' : '';
+}
+$('tabPhoto').onclick = () => setTab(true); $('tabText').onclick = () => setTab(false);
+
+// 휴대폰 사진을 최대 2000px JPEG로 줄여서 보낸다 (전송 시간·비용 절약, HEIC도 브라우저가 열 수 있으면 변환됨)
+$('file').addEventListener('change', () => {
+  const f = $('file').files[0]; if (!f) return;
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    imageData = c.toDataURL('image/jpeg', 0.88);
+    $('dropText').replaceChildren(el('img', {src: imageData, alt: '선택한 사진'}), '다른 사진을 고르려면 다시 누르세요');
+    $('photoBtn').disabled = false; URL.revokeObjectURL(url);
+  };
+  img.onerror = () => { $('err').textContent = '이 사진 형식은 열 수 없어요. JPG나 PNG로 다시 선택해 주세요.'; };
+  img.src = url;
+});
+
+const FLAG = {
+  restricted_kr: ['red', '국내 사용제한'], restricted: ['red', '규제 성분'], memory_conflict: ['orange', '내 피부 정보와 충돌'],
+  check_spelling: ['gray', '글자 확인 필요'],
+};
+function itemView(it){
+  const ing = it.ingredient, tags = [];
+  if (it.flags.includes('restricted_kr')) tags.push(FLAG.restricted_kr); else if (it.flags.includes('restricted')) tags.push(FLAG.restricted);
+  if (it.flags.includes('memory_conflict')) tags.push(FLAG.memory_conflict);
+  if (it.flags.includes('check_spelling')) tags.push(FLAG.check_spelling);
+  if (!ing) tags.push(['gray', '사전에 없음']); else if (!tags.length) tags.push(['green', '확인됨']);
+  const tone = tags.some(t => t[0] === 'red') ? 'red' : tags.some(t => t[0] === 'orange') ? 'orange' : '';
+  const hasInfo = ing && (ing.name_en || ing.description || ing.restriction);
+  const detail = hasInfo ? el('details', {},
+      el('summary', {}, '자세히'),
+      ing.name_en ? el('div', {}, '영문명: ' + ing.name_en) : null,
+      ing.description ? el('div', {}, '설명: ' + ing.description) : null,
+      ing.restriction ? el('div', {}, '규제: ' + ing.restriction) : null) : null;
+  return el('div', {class: 'ing ' + tone},
+    el('div', {class: 'head'}, el('span', {class: 'no'}, it.order), el('strong', {}, it.input),
+      ing && ing.name_ko !== it.input ? el('span', {class: 'muted'}, '→ ' + ing.name_ko) : null,
+      ...tags.map(([c, t]) => el('span', {class: 't ' + c}, t))),
+    detail);
+}
+function showResult(r){
+  current = r;
+  const s = r.summary;
+  $('resultTitle').textContent = r.product_name ? r.product_name + ' 분석 결과' : '분석 결과';
+  $('chips').replaceChildren(
+    el('span', {class: 'chip'}, `성분 ${s.total}개`),
+    el('span', {class: 'chip' + (s.restricted ? ' red' : '')}, `규제 성분 ${s.restricted}개`),
+    el('span', {class: 'chip' + (s.memory_conflict ? ' orange' : '')}, `내 피부 정보와 충돌 ${s.memory_conflict}개`),
+    el('span', {class: 'chip gray'}, `사전에 없음 ${s.unknown}개`));
+  // 주의 성분을 먼저, 나머지는 표시 순서대로
+  const warn = r.items.filter(i => i.flags.some(f => f.startsWith('restricted') || f === 'memory_conflict'));
+  const rest = r.items.filter(i => !warn.includes(i));
+  $('items').replaceChildren(
+    ...(warn.length ? [el('h3', {}, '주의해서 볼 성분'), ...warn.map(itemView), el('h3', {}, '전체 성분')] : []),
+    ...rest.map(itemView));
+  $('resultCard').classList.remove('hidden'); $('resultCard').scrollIntoView({behavior: 'smooth'});
+}
+async function run(path, body, btn){
+  $('err').textContent = ''; btn.disabled = true; const label = btn.textContent; btn.textContent = '분석 중…';
+  try { showResult(await api(path, {method: 'POST', body})); loadHistory(); }
+  catch (e) { $('err').textContent = e.message; if (e.status === 401) location.reload(); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+$('photoForm').addEventListener('submit', e => { e.preventDefault(); if (imageData) run('/scan/image', {image: imageData, product_name: e.target.product_name.value}, $('photoBtn')); });
+$('textForm').addEventListener('submit', e => { e.preventDefault(); run('/scan/text', {text: e.target.text.value, product_name: e.target.product_name.value}, e.target.querySelector('button')); });
+
+$('askBtn').addEventListener('click', () => {
+  if (!current) return;
+  const warn = current.items.filter(i => i.flags.some(f => f.startsWith('restricted') || f === 'memory_conflict')).map(i => i.input);
+  const q = `${current.product_name || '이 제품'}의 전성분을 분석했어요. ` + (warn.length ? `주의 성분: ${warn.join(', ')}. ` : '') + '내 피부에 써도 괜찮을까요?';
+  try { sessionStorage.setItem('ruti_prefill', q); } catch {}
+  location.href = '/chat';
+});
+
+async function loadHistory(){
+  const {scans} = await api('/scan/history');
+  $('history').replaceChildren(...scans.map(s => el('div', {class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
+    el('span', {}, (s.product_name || '이름 없는 제품') + (s.source === 'image' ? ' 📷' : '')),
+    el('span', {class: 'muted'}, `성분 ${s.summary.total} · 규제 ${s.summary.restricted} · 충돌 ${s.summary.memory_conflict}`))));
+  if (!scans.length) $('history').append(el('p', {class: 'muted'}, '아직 분석한 제품이 없어요.'));
+}
+async function start(){
+  try { await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
+  loadHistory();
+}
+$('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>

@@ -2,8 +2,8 @@
 
 STATUS = {
     "project": "RUTI",
-    "as_of": "2026-11-03",
-    "estimated_progress_percent": 60,
+    "as_of": "2026-11-04",
+    "estimated_progress_percent": 65,
     "progress_note": "수동 추정치입니다. 실제 OpenAI 키로 답변 품질을 검증하고, 검증된 제품 데이터를 등록하면 크게 올라갑니다.",
     "milestones": [
         {"name": "FastAPI 서버 / DB", "status": "완료 (SQLite·PostgreSQL)"},
@@ -12,13 +12,17 @@ STATUS = {
         {"name": "제품 등록·승인 워크플로", "status": "완료 (관리자 승인, 근거 URL 필수)"},
         {"name": "AI 상담 엔진", "status": "코드 완료 · 실제 키로 품질 미검증"},
         {"name": "추천 제품 ID 검증", "status": "완료 (승인 제품만 허용)"},
-        {"name": "검증된 화장품 데이터", "status": "구조·가져오기 도구 완료 · 실제 데이터 미등록"},
+        {"name": "식약처 성분 사전", "status": "완료 (성분 27,620 · 사용제한 6,922)"},
+        {"name": "전성분 사진 분석", "status": "기본 구현 (/scan) · 실제 사진 정확도 검증 필요"},
+        {"name": "식약처 기능성 제품", "status": "API 3개 연결 대기"},
         {"name": "사용자 상담 화면 / 관리자 화면", "status": "기본 구현 (/chat, /admin)"},
         {"name": "배포", "status": "Docker 설정 완료 · 실제 배포 전"},
     ],
     "next_steps": [
         "OpenAI 크레딧 충전 후 실제 상담 답변 품질 테스트",
-        "근거 자료가 있는 실제 제품 데이터 수집 → 가져오기 → 관리자 승인",
+        "전성분 사진 분석 정확도 테스트 (실제 화장품 20개 이상)",
+        "사용 후기 + 나와 비슷한 피부 분석",
+        "민감정보 동의·개인정보처리방침·회원 탈퇴",
         "상담 품질·안전성 평가 질문 세트 만들기",
         "클라우드 배포 (PostgreSQL + HTTPS) 및 DB 백업",
         "개인정보 처리방침·이용약관 준비",

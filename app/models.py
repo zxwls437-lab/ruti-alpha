@@ -122,3 +122,14 @@ class MfdsRecord(Base):
     record_key: Mapped[str] = mapped_column(String(200))
     data: Mapped[str] = mapped_column(Text)  # JSON
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ScanResult(Base):
+    """전성분 분석 기록. 사진은 저장하지 않고 인식된 성분 목록과 분석 결과만 남긴다."""
+    __tablename__ = "scan_results"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source: Mapped[str] = mapped_column(String(10))  # image | text
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    result: Mapped[str] = mapped_column(Text)  # JSON
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

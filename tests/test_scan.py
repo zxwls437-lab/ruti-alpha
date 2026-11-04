@@ -1,0 +1,139 @@
+import base64
+import json
+
+import pytest
+
+from app import scan
+from app.db import SessionLocal
+from app.models import Ingredient
+from tests.conftest import signup
+from tests.test_api import FakeResponse
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 100
+JPEG_URL = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + b"0" * 100).decode()
+
+
+def seed_ingredients():
+    with SessionLocal() as db:
+        db.add_all([
+            Ingredient(name_ko="정제수", name_en="Water"),
+            Ingredient(name_ko="글리세린", name_en="Glycerin"),
+            Ingredient(name_ko="1,2-헥산다이올", name_en="1,2-Hexanediol"),
+            Ingredient(name_ko="나이아신아마이드", name_en="Niacinamide", description="비타민 B3"),
+            Ingredient(name_ko="향료", name_en="Fragrance"),
+            Ingredient(name_ko="하이드로퀴논", name_en="Hydroquinone", restriction="[대한민국] 금지 / [EU] 금지"),
+            Ingredient(name_ko="레티놀", name_en="Retinol", restriction="[EU] 제한 - 0.3%"),
+            Ingredient(name_ko="부틸렌글라이콜", name_en="Butylene Glycol", synonyms="1,3-Butanediol"),
+        ])
+        db.commit()
+
+
+# ---------- 성분 나누기 ----------
+
+def test_split_keeps_numeric_commas_and_strips_prefix():
+    text = "[전성분] 정제수, 글리세린,1,2-헥산다이올 , 향료(리모넨)\n나이아신아마이드; 정제수"
+    assert scan.split_ingredients(text) == ["정제수", "글리세린", "1,2-헥산다이올", "향료(리모넨)", "나이아신아마이드"]
+
+
+def test_split_ingredients_english():
+    assert scan.split_ingredients("Ingredients: Water, Glycerin, 1,3-Butanediol.") == ["Water", "Glycerin", "1,3-Butanediol"]
+
+
+# ---------- 대조 ----------
+
+def test_analyze_flags(client):
+    seed_ingredients()
+    with SessionLocal() as db:
+        r = scan.analyze(db, ["정제수", "글리세린", "향료(리모넨)", "하이드로퀴논", "레티놀", "나이아신아마이드드", "1,3-Butanediol", "알수없는성분"],
+                         ["건성 피부", "향료에 민감해요"])
+    by = {i["input"]: i for i in r["items"]}
+    assert by["정제수"]["flags"] == [] and by["정제수"]["match"] == "exact"
+    assert by["향료(리모넨)"]["ingredient"]["name_ko"] == "향료" and "memory_conflict" in by["향료(리모넨)"]["flags"]
+    assert {"restricted", "restricted_kr"} <= set(by["하이드로퀴논"]["flags"])
+    assert by["레티놀"]["flags"] == ["restricted"]
+    assert by["나이아신아마이드드"]["match"] == "fuzzy" and "check_spelling" in by["나이아신아마이드드"]["flags"]
+    assert by["1,3-Butanediol"]["ingredient"]["name_ko"] == "부틸렌글라이콜"
+    assert by["알수없는성분"]["ingredient"] is None
+    assert r["summary"] == {"total": 8, "matched": 7, "restricted": 2, "restricted_kr": 1, "memory_conflict": 1, "unknown": 1}
+
+
+# ---------- 글자 붙여넣기 API ----------
+
+def test_text_scan_api_and_history(client):
+    seed_ingredients()
+    a, b = signup(client, "usera"), signup(client, "userb")
+    client.post("/memory", headers=a, json={"content": "향료에 민감"})
+    r = client.post("/scan/text", headers=a, json={"text": "정제수, 향료, 하이드로퀴논", "product_name": "테스트 크림"})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["summary"]["restricted_kr"] == 1 and data["summary"]["memory_conflict"] == 1
+    hist = client.get("/scan/history", headers=a).json()["scans"]
+    assert hist[0]["product_name"] == "테스트 크림" and hist[0]["summary"]["total"] == 3
+    sid = data["id"]
+    assert client.get(f"/scan/{sid}", headers=a).json()["items"][2]["input"] == "하이드로퀴논"
+    assert client.get(f"/scan/{sid}", headers=b).status_code == 404
+    assert client.delete(f"/scan/{sid}", headers=b).status_code == 404
+    assert client.delete(f"/scan/{sid}", headers=a).status_code == 200
+    assert client.post("/scan/text", headers=a, json={"text": " , ; "}).status_code == 422
+    assert client.post("/scan/text", json={"text": "정제수"}).status_code == 401
+
+
+# ---------- 사진 API ----------
+
+def test_decode_image():
+    assert scan.decode_image(JPEG_URL)[1] == "image/jpeg"
+    assert scan.decode_image(base64.b64encode(PNG).decode())[1] == "image/png"
+    with pytest.raises(scan.ScanError) as e:
+        scan.decode_image(base64.b64encode(b"GIF89a....").decode())
+    assert e.value.status == 415
+    with pytest.raises(scan.ScanError):
+        scan.decode_image("!!!not base64!!!")
+
+
+def test_image_scan_without_key(client):
+    h = signup(client)
+    r = client.post("/scan/image", headers=h, json={"image": JPEG_URL})
+    assert r.status_code == 503 and "붙여넣어" in r.json()["detail"]
+
+
+def ocr_response(names, is_list=True, note=""):
+    content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note}, ensure_ascii=False)
+    return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
+
+
+def test_image_scan_with_ocr(client, monkeypatch):
+    seed_ingredients()
+    h = signup(client)
+    sent = {}
+
+    def fake_post(url, json, headers, timeout):
+        sent["body"] = json
+        return ocr_response(["정제수", "글리세린, 레티놀", "하이드로퀴논"])
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", fake_post)
+    r = client.post("/scan/image", headers=h, json={"image": JPEG_URL, "product_name": "세럼"})
+    assert r.status_code == 200, r.text
+    assert [i["input"] for i in r.json()["items"]] == ["정제수", "글리세린", "레티놀", "하이드로퀴논"]
+    assert r.json()["source"] == "image"
+    image_part = sent["body"]["messages"][1]["content"][1]
+    assert image_part["image_url"]["url"].startswith("data:image/jpeg;base64,")
+
+
+def test_image_scan_not_ingredient_list(client, monkeypatch):
+    h = signup(client)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", lambda *a, **k: ocr_response([], False, "고양이 사진"))
+    r = client.post("/scan/image", headers=h, json={"image": JPEG_URL})
+    assert r.status_code == 422 and "고양이 사진" in r.json()["detail"]
+
+
+def test_image_scan_daily_limit(client, monkeypatch):
+    h = signup(client)
+    monkeypatch.setenv("RUTI_SCAN_PER_DAY", "1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", lambda *a, **k: FakeResponse(429))
+    assert client.post("/scan/image", headers=h, json={"image": JPEG_URL}).status_code == 503
+    assert client.post("/scan/image", headers=h, json={"image": JPEG_URL}).status_code == 429
+    # 글자 붙여넣기는 제한 없음
+    assert client.post("/scan/text", headers=h, json={"text": "정제수"}).status_code == 200

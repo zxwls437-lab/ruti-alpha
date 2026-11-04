@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import ai, retrieval
+from . import ai, retrieval, scan
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, Memory, Product, User
@@ -51,7 +51,8 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="RUTI API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="RUTI API", version="0.4.0", lifespan=lifespan)
+app.include_router(scan.router)
 
 
 @app.middleware("http")
@@ -167,6 +168,11 @@ def dashboard_page():
 @app.get("/chat", include_in_schema=False)
 def chat_page():
     return FileResponse(STATIC / "chat.html")
+
+
+@app.get("/scan", include_in_schema=False)
+def scan_page():
+    return FileResponse(STATIC / "scan.html")
 
 
 @app.get("/admin", include_in_schema=False)
