@@ -136,6 +136,7 @@ $('flipBtn').addEventListener('click', () => $('file').click());
 
 function showResult(r){
   if (r.mode === 'front_not_found') return showFrontNotFound(r);
+  if (!r.items || !r.summary) { $('err').textContent = '분석 결과를 표시하지 못했어요. Ctrl+F5로 새로고침한 뒤 다시 시도해 주세요.'; return; }
   $('frontCard').classList.add('hidden');
   current = r;
   const fromDb = r.mode === 'front_found' && r.from_database;
@@ -179,9 +180,9 @@ $('askBtn').addEventListener('click', () => {
 
 async function loadHistory(){
   const {scans} = await api('/scan/history');
-  $('history').replaceChildren(...scans.map(s => el('div', {class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
+  $('history').replaceChildren(...scans.filter(s => s.summary).map(s => el('div', {class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
     el('span', {}, (s.product_name || '이름 없는 제품') + (s.source === 'image' ? ' 📷' : '')),
-    el('span', {class: 'muted'}, `성분 ${s.summary.total} · 국내 금지 ${s.summary.kr_ban ?? 0} · 한도 ${s.summary.kr_limit ?? 0} · 충돌 ${s.summary.memory_conflict}`))));
+    el('span', {class: 'muted'}, `성분 ${s.summary.total ?? 0} · 국내 금지 ${s.summary.kr_ban ?? 0} · 한도 ${s.summary.kr_limit ?? 0} · 충돌 ${s.summary.memory_conflict}`))));
   if (!scans.length) $('history').append(el('p', {class: 'muted'}, '아직 분석한 제품이 없어요.'));
 }
 async function start(){

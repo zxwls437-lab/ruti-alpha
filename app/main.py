@@ -61,6 +61,10 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
+    path = request.url.path
+    if path in ("/", "/chat", "/scan", "/admin") or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 
