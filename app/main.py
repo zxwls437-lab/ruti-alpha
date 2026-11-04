@@ -67,7 +67,7 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
     path = request.url.path
-    if path in ("/", "/chat", "/scan", "/community", "/admin") or path.startswith("/static/"):
+    if path in ("/", "/chat", "/scan", "/community", "/mypage", "/admin") or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -197,6 +197,11 @@ def chat_page():
 @app.get("/scan", include_in_schema=False)
 def scan_page():
     return FileResponse(STATIC / "scan.html")
+
+
+@app.get("/mypage", include_in_schema=False)
+def me_page():
+    return FileResponse(STATIC / "me.html")
 
 
 @app.get("/community", include_in_schema=False)

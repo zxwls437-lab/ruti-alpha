@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUTI 내 정보</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.auth{max-width:380px;margin:40px auto}
+.wrap{max-width:640px;margin:0 auto}
+.profile{display:flex;gap:14px;align-items:center}
+.avatar{width:56px;height:56px;border-radius:28px;background:var(--soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));text-align:center;gap:6px}
+.stats b{display:block;font-size:20px}
+.stats a{text-decoration:none;color:var(--muted);font-size:13px}.stats a b{color:var(--text)}
+.line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.line:last-child{border-bottom:0}
+.switch{position:relative;width:46px;height:28px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;border-radius:14px;background:var(--line);cursor:pointer;transition:.15s}
+.switch span::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:11px;background:#fff;transition:.15s}
+.switch input:checked+span{background:var(--brand)}.switch input:checked+span::after{left:21px}
+.switch input:focus-visible+span{outline:2px solid var(--brand);outline-offset:2px}
+.mem{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0}
+.ok{color:var(--brand);font-size:14px;min-height:1em}
+</style></head><body>
+<nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage" class="on">내 정보</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>로그인</h2>
+    <input name="username" placeholder="아이디" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+
+  <div id="app" class="wrap hidden">
+    <section class="card stack">
+      <div class="profile">
+        <span class="avatar" id="avatar" aria-hidden="true"></span>
+        <div style="flex:1;min-width:0"><h2 style="margin:0" id="pName"></h2><div class="muted" id="pSub"></div></div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="card stack">
+      <h2>프로필</h2>
+      <form id="profileForm" class="stack">
+        <label class="muted" for="fName">이름 (RUTI가 불러드릴 이름, 다른 사람에게는 안 보여요)</label>
+        <input id="fName" name="name" maxlength="30" required>
+        <label class="muted" for="fNick">닉네임 (커뮤니티·후기에 보여요)</label>
+        <input id="fNick" name="nickname" maxlength="20" required>
+        <button>저장</button><div class="ok" id="profileMsg"></div>
+      </form>
+    </section>
+
+    <section class="card stack">
+      <h2>내 피부 정보</h2>
+      <p class="muted" style="margin:0">상담, 성분 분석, 후기 통계에 쓰여요.</p>
+      <form id="memForm" class="row"><input name="content" maxlength="2000" placeholder="예: 건성 피부, 향료에 민감해요" required><button>추가</button></form>
+      <div id="mems"></div>
+      <div class="error" id="memErr"></div>
+    </section>
+
+    <section class="card">
+      <h2>동의·알림</h2>
+      <div id="consents"></div>
+      <div class="ok" id="consentMsg"></div>
+    </section>
+
+    <section class="card stack">
+      <h2>비밀번호 변경</h2>
+      <form id="pwForm" class="stack">
+        <input name="current_password" type="password" placeholder="현재 비밀번호" autocomplete="current-password" required>
+        <input name="new_password" type="password" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password" minlength="8" required>
+        <button>변경</button><div class="ok" id="pwMsg"></div>
+      </form>
+      <p class="muted" style="margin:0">바꾸면 다른 기기에서는 자동으로 로그아웃돼요.</p>
+    </section>
+
+    <section class="card stack">
+      <h2>내 데이터</h2>
+      <button type="button" class="ghost" id="exportBtn">내 데이터 내려받기 (JSON)</button>
+      <button type="button" class="ghost" id="logoutBtn">로그아웃</button>
+      <details>
+        <summary class="muted" style="cursor:pointer">회원 탈퇴</summary>
+        <form id="deleteForm" class="stack" style="margin-top:10px">
+          <p style="margin:0">탈퇴하면 피부 정보, 상담·분석 기록, 화장대, 후기, 커뮤니티 글이 모두 삭제되고 되돌릴 수 없어요.</p>
+          <input name="password" type="password" placeholder="비밀번호 확인" autocomplete="current-password" required>
+          <button class="danger">탈퇴하기</button><div class="error" id="delErr"></div>
+        </form>
+      </details>
+    </section>
+    <p class="muted" style="text-align:center">약관 버전 <span id="termsVer"></span> · RUTI는 의료 진단을 대신하지 않아요</p>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+const flash = (id, text) => { $(id).textContent = text; setTimeout(() => { $(id).textContent = ''; }, 2500); };
+
+async function loadProfile(){
+  const [me, vanity, mine, history] = await Promise.all([api('/me'), api('/vanity'), api('/reviews/mine'), api('/scan/history?limit=100')]);
+  $('avatar').textContent = (me.name || me.nickname || '나').charAt(0);
+  $('pName').textContent = (me.name || '이름 없음') + '님';
+  $('pSub').textContent = '@' + me.nickname + ' · ' + me.username;
+  $('fName').value = me.name; $('fNick').value = me.nickname;
+  $('termsVer').textContent = me.terms_version;
+  $('stats').replaceChildren(
+    el('a', {href: '/scan'}, el('b', {}, history.scans.length), '분석'),
+    el('a', {href: '/scan'}, el('b', {}, vanity.items.length), '화장대'),
+    el('a', {href: '/scan'}, el('b', {}, mine.reviews.length), '후기'),
+    el('a', {href: '/scan'}, el('b', {}, me.counts.skin_info), '피부 정보'));
+  $('consents').replaceChildren(...me.consent_items.map(c => {
+    const box = el('input', {type: 'checkbox', checked: me.consents[c.kind], 'aria-label': c.label});
+    const locked = ['age14', 'terms', 'privacy'].includes(c.kind) && me.consents[c.kind];
+    if (locked) box.disabled = true;
+    box.addEventListener('change', async () => {
+      if (c.kind === 'sensitive' && !box.checked && !confirm('민감정보 동의를 철회하면 저장된 피부 정보가 바로 삭제돼요. 철회할까요?')) { box.checked = true; return; }
+      try { const r = await api('/me/consents', {method: 'PUT', body: {consents: {[c.kind]: box.checked}}});
+        flash('consentMsg', r.deleted_skin_info ? `피부 정보 ${r.deleted_skin_info}개를 삭제했어요.` : '저장했어요.'); loadProfile(); loadMems(); }
+      catch (e) { box.checked = !box.checked; flash('consentMsg', e.message); }
+    });
+    return el('div', {class: 'line'}, el('span', {}, (c.required ? '[필수] ' : '[선택] ') + c.label,
+      locked ? el('div', {class: 'muted'}, '철회하려면 회원 탈퇴를 이용해 주세요') : null,
+      c.kind === 'sensitive' ? el('div', {class: 'muted'}, '철회하면 피부 정보가 삭제되고 맞춤 판정이 꺼져요') : null),
+      el('label', {class: 'switch'}, box, el('span', {})));
+  }));
+}
+async function loadMems(){
+  const {memories} = await api('/memory');
+  $('mems').replaceChildren(...memories.map(m => el('div', {class: 'mem'}, el('span', {}, m.content),
+    el('button', {class: 'ghost', style: 'padding:2px 10px;flex:0 0 auto', onclick: async () => { await api('/memory/' + m.id, {method: 'DELETE'}); loadMems(); loadProfile(); }}, '삭제'))));
+  if (!memories.length) $('mems').append(el('p', {class: 'muted', style: 'margin:0'}, '아직 저장된 피부 정보가 없어요.'));
+}
+$('profileForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api('/me', {method: 'PATCH', body: {name: e.target.name.value.trim(), nickname: e.target.nickname.value.trim()}}); flash('profileMsg', '저장했어요.'); loadProfile(); }
+  catch (err) { flash('profileMsg', err.message); }
+});
+$('memForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('memErr').textContent = '';
+  try { await api('/memory', {method: 'POST', body: {content: e.target.content.value}}); e.target.reset(); loadMems(); loadProfile(); }
+  catch (err) { $('memErr').textContent = err.message; }
+});
+$('pwForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api('/me/password', {method: 'POST', body: {current_password: e.target.current_password.value, new_password: e.target.new_password.value}});
+    e.target.reset(); flash('pwMsg', '비밀번호를 바꿨어요.'); }
+  catch (err) { flash('pwMsg', err.message); }
+});
+$('exportBtn').addEventListener('click', async () => {
+  const res = await fetch('/me/export', {headers: {Authorization: 'Bearer ' + RUTI.token}});
+  if (!res.ok) return alert('내려받지 못했어요.');
+  const url = URL.createObjectURL(await res.blob());
+  const a = el('a', {href: url, download: 'ruti-my-data.json'}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+$('logoutBtn').addEventListener('click', () => RUTI.logout());
+$('deleteForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('delErr').textContent = '';
+  if (!confirm('정말 탈퇴할까요? 모든 데이터가 삭제돼요.')) return;
+  try { await api('/me', {method: 'DELETE', body: {password: e.target.password.value}}); RUTI.token = ''; alert('탈퇴가 완료됐어요. 그동안 고마웠어요.'); location.href = '/chat'; }
+  catch (err) { $('delErr').textContent = err.message; }
+});
+async function start(){
+  let me;
+  try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
+  $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
+  loadProfile(); loadMems();
+}
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>
