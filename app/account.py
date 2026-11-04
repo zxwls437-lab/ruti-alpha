@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from .config import env
 from .db import get_db, utcnow
-from .models import (AuthSession, ChatMessage, Consent, Memory, Product, ProductIngredientList, Review, ReviewVote,
-                     ScanResult, User, VanityItem)
+from .models import (AuthSession, ChatMessage, Comment, Consent, Memory, Post, Product, ProductIngredientList, Review,
+                     ReviewVote, ScanResult, User, VanityItem)
 from .security import _token_hash, bearer, current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/me", tags=["회원 정보"])
@@ -201,6 +201,8 @@ def export_my_data(user: User = Depends(current_user), db: Session = Depends(get
                             for c in rows(Consent, Consent.id)],
         "skin_info": [{"content": m.content, "at": m.created_at.isoformat()} for m in rows(Memory, Memory.id)],
         "chat_messages": [{"role": m.role, "content": m.content, "at": m.created_at.isoformat()} for m in rows(ChatMessage, ChatMessage.id)],
+        "posts": [{"kind": p.kind, "title": p.title, "body": p.body, "at": p.created_at.isoformat()} for p in rows(Post, Post.id)],
+        "comments": [{"post_id": c.post_id, "body": c.body, "at": c.created_at.isoformat()} for c in rows(Comment, Comment.id)],
         "vanity": [{"product_name": v.product_name, "ingredients": json.loads(v.ingredients), "at": v.created_at.isoformat()}
                    for v in rows(VanityItem, VanityItem.id)],
         "reviews": [{"product_name": r.product_name, "brand": r.brand, "rating": r.rating, "text": r.text, "at": r.created_at.isoformat()}
@@ -223,6 +225,8 @@ def delete_account(payload: DeleteAccountIn, user: User = Depends(current_user),
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(400, "비밀번호가 올바르지 않아요.")
     uid = user.id
+    from .community import delete_user_content  # 순환 import 방지
+    delete_user_content(db, uid)
     my_reviews = list(db.scalars(select(Review.id).where(Review.user_id == uid)))
     if my_reviews:
         db.execute(delete(ReviewVote).where(ReviewVote.review_id.in_(my_reviews)))

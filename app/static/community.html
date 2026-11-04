@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUTI 커뮤니티</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.auth{max-width:380px;margin:40px auto}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{padding:6px 14px}
+.post{border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;background:var(--card)}
+.post h3{margin:6px 0;font-size:16px}.post p{margin:6px 0;line-height:1.6;white-space:pre-wrap}
+.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.thumb{display:block;position:relative;border-radius:12px;overflow:hidden;margin:8px 0;background:#222;aspect-ratio:16/9}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:42px;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.pill{font-size:12px;padding:3px 9px;border-radius:12px;font-weight:600;background:var(--soft);color:var(--brand)}
+.pill.avoid{background:#fde8e8;color:#b4232c}.pill.check{background:#fff1dc;color:#9a5b00}.pill.gray{background:var(--bg);color:var(--muted)}
+.comments{border-top:1px solid var(--line);margin-top:10px;padding-top:10px}
+.comment{padding:6px 0;font-size:14px;line-height:1.5}
+</style></head><body>
+<nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan">성분 분석</a><a href="/community" class="on">커뮤니티</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>로그인</h2>
+    <input name="username" placeholder="아이디" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+
+  <div id="app" class="hidden">
+    <section class="card">
+      <div class="row"><h2 style="margin:0">커뮤니티</h2><button type="button" id="writeBtn">글쓰기</button></div>
+      <form id="postForm" class="stack hidden" style="margin-top:12px">
+        <select name="kind" id="kindSel">
+          <option value="question">질문</option><option value="talk">이야기</option><option value="video">유튜브 영상 공유</option>
+        </select>
+        <input name="title" maxlength="100" placeholder="제목" required>
+        <textarea name="body" rows="4" maxlength="3000" placeholder="내용 (치료·완치 같은 의약품 표현은 피해 주세요)"></textarea>
+        <div id="videoFields" class="stack hidden">
+          <input name="video_url" placeholder="유튜브 주소 (youtube.com, youtu.be, 쇼츠)">
+          <label class="check"><input type="radio" name="sponsored" value="no"> 협찬·광고가 없는 영상이에요</label>
+          <label class="check"><input type="radio" name="sponsored" value="yes"> 협찬·광고가 포함된 영상이에요 (광고 포함 표시)</label>
+        </div>
+        <input name="product_name" maxlength="200" placeholder="관련 제품 이름 (선택) — 내 피부에 맞는지 함께 보여드려요">
+        <label class="check"><input type="checkbox" name="show_skin" checked> 내 피부 타입 함께 보여주기</label>
+        <button>올리기</button>
+        <div class="muted" id="postNotice"></div>
+      </form>
+      <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
+        <div class="tabs" id="tabs"></div>
+        <label class="check" style="flex:0 0 auto"><input type="checkbox" id="similar"> 나와 비슷한 피부만</label>
+      </div>
+    </section>
+    <div id="feed"></div>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+const TABS = {'': '전체', question: '질문', talk: '이야기', video: '영상'};
+let tab = '';
+const FIT = {good: '', check: 'check', avoid: 'avoid'};
+
+function postCard(p){
+  const box = el('div', {class: 'post'});
+  const comments = el('div', {class: 'comments hidden'});
+  const toggleComments = async () => {
+    if (!comments.classList.contains('hidden')) { comments.classList.add('hidden'); return; }
+    const d = await api('/community/posts/' + p.id);
+    const input = el('input', {placeholder: '댓글을 남겨 주세요', maxLength: 1000});
+    comments.replaceChildren(...d.comments.map(c => el('div', {class: 'comment'}, el('b', {}, c.author + (c.is_post_author ? ' (글쓴이)' : '')), ' ', c.body,
+        c.mine ? null : el('button', {class: 'ghost', style: 'padding:0 8px;margin-left:6px;font-size:12px', onclick: async () => {
+          const reason = prompt('신고 이유'); if (reason) { await api(`/community/comments/${c.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요.'); } }}, '신고'))),
+      el('form', {class: 'row', style: 'margin-top:8px', onsubmit: async e => { e.preventDefault(); if (!input.value.trim()) return;
+        await api(`/community/posts/${p.id}/comments`, {method: 'POST', body: {body: input.value}}); comments.classList.add('hidden'); toggleComments(); }},
+        input, el('button', {}, '등록')));
+    comments.classList.remove('hidden');
+  };
+  box.append(...[
+    el('div', {class: 'meta'}, el('span', {class: 'pill'}, p.kind_label), el('b', {style: 'color:var(--text)'}, p.author),
+      p.skin_tags.length ? el('span', {}, p.skin_tags.join(' · ')) : null, p.sponsored ? el('span', {class: 'pill gray'}, '광고 포함') : null),
+    el('h3', {}, p.title),
+    p.video ? el('a', {class: 'thumb', href: p.video.watch_url, target: '_blank', rel: 'noopener noreferrer'},
+      el('img', {src: p.video.thumbnail, alt: p.title + ' 영상 썸네일', loading: 'lazy'}), el('span', {'aria-hidden': 'true'}, '▶')) : null,
+    p.body ? el('p', {}, p.body) : null,
+    p.medical_claim ? el('div', {class: 'muted'}, '※ 의약품 효능처럼 들리는 표현이 있어요. 개인 경험으로만 참고해 주세요.') : null,
+    p.product_check ? el('div', {class: 'meta', style: 'margin:6px 0'}, el('span', {}, '📦 ' + p.product_check.product_name),
+      p.product_check.found ? el('span', {class: 'pill ' + FIT[p.product_check.level]}, '나에게 ' + p.product_check.title)
+        : el('span', {class: 'pill gray'}, '전성분 정보 없음')) : null,
+    el('div', {class: 'row', style: 'justify-content:flex-start;gap:6px;margin-top:6px'},
+      p.mine ? el('span', {class: 'muted'}, `도움돼요 ${p.helpful_count}`) : el('button', {class: p.helpful_by_me ? '' : 'ghost', style: 'padding:4px 12px;flex:0 0 auto',
+        onclick: async () => { await api(`/community/posts/${p.id}/helpful`, {method: 'POST'}); load(); }}, `도움돼요 ${p.helpful_count}`),
+      el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: toggleComments}, `댓글 ${p.comment_count}`),
+      p.mine ? el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
+        if (confirm('글을 지울까요?')) { await api('/community/posts/' + p.id, {method: 'DELETE'}); load(); } }}, '삭제')
+        : el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
+          const reason = prompt('신고 이유 (예: 광고, 욕설, 허위 정보)'); if (reason) { await api(`/community/posts/${p.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요. 검토 후 조치할게요.'); } }}, '신고')),
+    comments].filter(Boolean));
+  return box;
+}
+async function load(){
+  $('tabs').replaceChildren(...Object.entries(TABS).map(([k, v]) => el('button', {type: 'button', class: k === tab ? '' : 'ghost', onclick: () => { tab = k; load(); }}, v)));
+  const q = new URLSearchParams({kind: tab, similar: $('similar').checked});
+  const {posts} = await api('/community/posts?' + q);
+  $('feed').replaceChildren(...posts.map(postCard));
+  if (!posts.length) $('feed').append(el('p', {class: 'muted card'}, '아직 글이 없어요. 첫 글을 남겨 주세요!'));
+}
+$('similar').addEventListener('change', load);
+$('writeBtn').addEventListener('click', () => $('postForm').classList.toggle('hidden'));
+$('kindSel').addEventListener('change', e => $('videoFields').classList.toggle('hidden', e.target.value !== 'video'));
+$('postForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, sp = f.querySelector('[name=sponsored]:checked');
+  const body = {kind: f.kind.value, title: f.title.value, body: f.body.value, product_name: f.product_name.value, show_skin: f.show_skin.checked,
+                video_url: f.video_url.value, sponsored: sp ? sp.value === 'yes' : null};
+  try { const r = await api('/community/posts', {method: 'POST', body}); f.reset(); $('videoFields').classList.add('hidden');
+    $('postNotice').textContent = r.notices.join(' ') || '올렸어요.'; load(); }
+  catch (err) { $('postNotice').textContent = err.message; }
+});
+async function start(){
+  let me;
+  try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
+  $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
+  load();
+}
+$('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>

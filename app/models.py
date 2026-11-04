@@ -230,3 +230,49 @@ class VanityItem(Base):
     ingredients: Mapped[str] = mapped_column(Text)  # JSON 배열
     scan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Post(Base):
+    """커뮤니티 글: 질문(question) · 자유(talk) · 유튜브 영상 공유(video)."""
+    __tablename__ = "posts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(10), index=True)
+    title: Mapped[str] = mapped_column(String(100))
+    body: Mapped[str] = mapped_column(Text, default="")
+    video_id: Mapped[str] = mapped_column(String(20), default="")   # 유튜브 영상 ID (영상은 저장하지 않음)
+    sponsored: Mapped[bool] = mapped_column(Boolean, default=False)
+    product_name: Mapped[str] = mapped_column(String(200), default="")
+    medical_claim: Mapped[bool] = mapped_column(Boolean, default=False)
+    skin_tags: Mapped[str] = mapped_column(String(200), default="")
+    show_skin: Mapped[bool] = mapped_column(Boolean, default=True)
+    helpful_count: Mapped[int] = mapped_column(Integer, default=0)
+    comment_count: Mapped[int] = mapped_column(Integer, default=0)
+    report_count: Mapped[int] = mapped_column(Integer, default=0)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    medical_claim: Mapped[bool] = mapped_column(Boolean, default=False)
+    report_count: Mapped[int] = mapped_column(Integer, default=0)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class CommunityVote(Base):
+    """글·댓글 도움돼요·신고 (1인 1회)."""
+    __tablename__ = "community_votes"
+    __table_args__ = (UniqueConstraint("user_id", "target", "target_id", "kind"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    target: Mapped[str] = mapped_column(String(10))   # post | comment
+    target_id: Mapped[int] = mapped_column(Integer, index=True)
+    kind: Mapped[str] = mapped_column(String(10))     # helpful | report
+    reason: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

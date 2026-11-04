@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import account, ai, retrieval, reviews, scan, vanity
+from . import account, ai, community, retrieval, reviews, scan, vanity
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
@@ -56,6 +56,7 @@ app.include_router(scan.router)
 app.include_router(account.router)
 app.include_router(reviews.router)
 app.include_router(vanity.router)
+app.include_router(community.router)
 
 
 @app.middleware("http")
@@ -66,7 +67,7 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
     path = request.url.path
-    if path in ("/", "/chat", "/scan", "/admin") or path.startswith("/static/"):
+    if path in ("/", "/chat", "/scan", "/community", "/admin") or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -196,6 +197,11 @@ def chat_page():
 @app.get("/scan", include_in_schema=False)
 def scan_page():
     return FileResponse(STATIC / "scan.html")
+
+
+@app.get("/community", include_in_schema=False)
+def community_page():
+    return FileResponse(STATIC / "community.html")
 
 
 @app.get("/admin", include_in_schema=False)

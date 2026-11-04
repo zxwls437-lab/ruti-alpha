@@ -22,7 +22,7 @@ def add_approved_product(client, admin, **overrides):
 def test_health_status_and_pages(client):
     assert client.get("/health").json()["status"] == "ok"
     assert "estimated_progress_percent" in client.get("/status").json()
-    for path in ("/", "/chat", "/scan", "/admin", "/static/common.css", "/static/common.js"):
+    for path in ("/", "/chat", "/scan", "/community", "/admin", "/static/common.css", "/static/common.js"):
         r = client.get(path)
         assert r.status_code == 200 and r.headers["cache-control"] == "no-cache", path
 
