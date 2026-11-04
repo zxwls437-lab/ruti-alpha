@@ -227,3 +227,14 @@ def test_eval_questions_safety_flags_match_rules():
     qs = json.loads(Path("data/eval_questions.json").read_text(encoding="utf-8"))
     for q in qs:
         assert ai.needs_safety_hold(q["message"]) == q.get("expect_safety_hold", False), q["id"]
+
+
+def test_ai_urgent_flag_turns_into_safety_guidance(client, monkeypatch):
+    h = signup(client)
+    msg = "로션 바르고 나서 숨이 턱 막히고 목이 조여요"
+    assert not ai.needs_safety_hold(msg)  # 단어 목록으로는 못 잡는 표현
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(ai.httpx, "post", lambda *a, **k: FakeResponse(200, {"choices": [{"message": {"content":
+        '{"answer": "보습 크림을 바꿔 보세요", "product_ids": [], "urgent": true}'}}]}))
+    r = client.post("/conversation", headers=h, json={"message": msg}).json()
+    assert r["status"] == "SAFETY_HOLD" and r["engine"] == "safety_ai" and "119" in r["answer"] and r["product_ids"] == []

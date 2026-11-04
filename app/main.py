@@ -453,6 +453,10 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
         review_stats = reviews.reviews_in_text(db, user, message)
         result = ai.generate_answer(message, memories[::-1], products, history, ingredients, review_stats)
         status_code = "OK" if result.ok else "AI_UNAVAILABLE"
+        if result.urgent:
+            # 단어 목록이 놓친 위험 신호를 AI가 잡은 경우: 제품 추천 없이 진료 안내로 바꾼다
+            result = ai.AIResult(ai.SAFETY_ANSWER, "safety_ai")
+            status_code = "SAFETY_HOLD"
 
     # 상담 기록 저장 (AI 오류 응답은 다음 대화 맥락에 섞이지 않게 저장하지 않음)
     if status_code != "AI_UNAVAILABLE":
