@@ -238,3 +238,18 @@ def test_ai_urgent_flag_turns_into_safety_guidance(client, monkeypatch):
         '{"answer": "보습 크림을 바꿔 보세요", "product_ids": [], "urgent": true}'}}]}))
     r = client.post("/conversation", headers=h, json={"message": msg}).json()
     assert r["status"] == "SAFETY_HOLD" and r["engine"] == "safety_ai" and "119" in r["answer"] and r["product_ids"] == []
+
+
+def test_pwa_files(client):
+    m = client.get("/manifest.webmanifest")
+    assert m.status_code == 200 and m.headers["content-type"].startswith("application/manifest+json")
+    data = m.json()
+    assert data["display"] == "standalone" and data["start_url"].startswith("/scan")
+    for icon in data["icons"]:
+        r = client.get(icon["src"])
+        assert r.status_code == 200 and r.content[:4] == b"\x89PNG", icon["src"]
+    sw = client.get("/sw.js")
+    assert sw.status_code == 200 and "javascript" in sw.headers["content-type"] and sw.headers["service-worker-allowed"] == "/"
+    assert client.get("/static/offline.html").status_code == 200
+    assert client.get("/static/icons/../main.py").status_code == 404
+    assert 'rel="manifest"' in client.get("/scan").text

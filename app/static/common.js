@@ -97,3 +97,16 @@ const RUTI = {
   },
   async logout(){ try { await RUTI.api('/auth/logout', {method: 'POST'}); } catch {} RUTI.token = ''; location.reload(); },
 };
+
+// 앱 설치(PWA): 서비스 워커 등록 + 설치 가능할 때 '앱 설치' 버튼 표시
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  const nav = document.querySelector('nav');
+  if (!nav || document.getElementById('installApp')) return;
+  const btn = RUTI.el('button', {id: 'installApp', type: 'button', style: 'padding:6px 12px;font-size:13px;background:#fff;color:var(--brand-dark)',
+    onclick: async () => { e.prompt(); await e.userChoice; btn.remove(); }}, '앱 설치');
+  nav.append(btn);
+});

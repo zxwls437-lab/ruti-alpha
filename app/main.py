@@ -68,7 +68,7 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
     path = request.url.path
-    if path in ("/", "/chat", "/scan", "/community", "/mypage", "/admin") or path.startswith("/static/"):
+    if (path in ("/", "/chat", "/scan", "/community", "/mypage", "/admin") or path.startswith("/static/")) and not path.startswith("/static/icons/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -217,9 +217,30 @@ def admin_page():
 
 @app.get("/static/{name}", include_in_schema=False)
 def static_file(name: str):
-    if name not in {"common.css", "common.js"}:
+    if name not in {"common.css", "common.js", "offline.html"}:
         raise HTTPException(404)
     return FileResponse(STATIC / name)
+
+
+ICONS = {"icon-192.png", "icon-512.png", "maskable-512.png", "apple-touch-icon.png"}
+
+
+@app.get("/static/icons/{name}", include_in_schema=False)
+def icon_file(name: str):
+    if name not in ICONS:
+        raise HTTPException(404)
+    return FileResponse(STATIC / "icons" / name, media_type="image/png", headers={"Cache-Control": "public, max-age=604800"})
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest():
+    return FileResponse(STATIC / "manifest.webmanifest", media_type="application/manifest+json")
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    # 서비스 워커는 사이트 전체(/)를 다뤄야 하므로 루트 경로에서 제공하고, 항상 최신을 확인하게 한다
+    return FileResponse(STATIC / "sw.js", media_type="application/javascript", headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
 
 # ---------- 상태 ----------

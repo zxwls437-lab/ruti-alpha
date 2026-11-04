@@ -1,0 +1,22 @@
+{
+  "name": "RUTI - 내 피부 맞춤 화장품 성분 분석",
+  "short_name": "RUTI",
+  "description": "화장품 성분표를 찍으면 식약처 성분 정보와 내 피부 정보로 맞는지 알려드려요.",
+  "lang": "ko",
+  "start_url": "/scan?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF8F3",
+  "theme_color": "#4F7D6E",
+  "icons": [
+    {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "성분 분석", "url": "/scan?source=app", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "AI 상담", "url": "/chat?source=app", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "커뮤니티", "url": "/community?source=app", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}
