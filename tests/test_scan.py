@@ -107,8 +107,10 @@ def test_image_scan_without_key(client):
     assert r.status_code == 503 and "붙여넣어" in r.json()["detail"]
 
 
-def ocr_response(names, is_list=True, note="", readability="clear"):
-    content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note, "readability": readability}, ensure_ascii=False)
+def ocr_response(names, is_list=True, note="", readability="clear", side=None, brand="", product_name=""):
+    side = side or ("back" if names else "other")
+    content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note, "readability": readability,
+                          "side": side, "brand": brand, "product_name": product_name}, ensure_ascii=False)
     return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
 
 
@@ -160,3 +162,45 @@ def test_image_scan_readability(client, monkeypatch):
     monkeypatch.setattr(scan.httpx, "post", lambda *a, **k: ocr_response(["정제수"], readability="poor"))
     r = client.post("/scan/image", headers=h, json={"image": base64.b64encode(PNG).decode()})
     assert r.status_code == 422 and "가까이서" in r.json()["detail"]
+
+
+def img(n):
+    return "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff" + bytes([n]) * 50).decode()
+
+
+def test_front_photo_uses_shared_ingredient_list(client, monkeypatch):
+    seed_ingredients()
+    a, b = signup(client, "first"), signup(client, "second")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    # 1) 아직 아무도 뒷면을 안 찍은 제품의 앞면
+    monkeypatch.setattr(scan.httpx, "post", lambda *x, **k: ocr_response([], False, side="front", brand="라운드랩", product_name="자작나무 수분 크림"))
+    r = client.post("/scan/image", headers=b, json={"image": img(1)}).json()
+    assert r["mode"] == "front_not_found" and r["title"] == "라운드랩 자작나무 수분 크림"
+    # 2) 첫 사용자가 뒷면을 또렷하게 찍음 (제품명은 사진에서 읽음)
+    monkeypatch.setattr(scan.httpx, "post", lambda *x, **k: ocr_response(["정제수", "글리세린", "하이드로퀴논", "향료"], brand="라운드랩", product_name="자작나무 수분크림"))
+    r = client.post("/scan/image", headers=a, json={"image": img(2)}).json()
+    assert r["mode"] == "back" and r["shared"] is True and r["product_name"] == "라운드랩 자작나무 수분크림"
+    # 3) 두 번째 사용자가 앞면만 찍으면 저장된 전성분으로 분석
+    client.post("/memory", headers=b, json={"content": "향료에 민감해요"})
+    monkeypatch.setattr(scan.httpx, "post", lambda *x, **k: ocr_response([], False, side="front", brand="라운드랩", product_name="자작나무 수분 크림"))
+    r = client.post("/scan/image", headers=b, json={"image": img(3)}).json()
+    assert r["mode"] == "front_found" and r["from_database"]["confirmations"] == 1
+    assert r["summary"]["kr_ban"] == 1 and r["summary"]["memory_conflict"] == 1
+
+
+def test_blurry_back_is_not_shared_and_confirmations_count(client, monkeypatch):
+    seed_ingredients()
+    h = signup(client)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", lambda *x, **k: ocr_response(["정제수", "글리세린", "향료"], readability="partial", product_name="흐린 크림"))
+    assert client.post("/scan/image", headers=h, json={"image": img(4)}).json()["shared"] is False
+    # 글자 입력 + 제품명 → 저장, 같은 목록 다시 → 확인 횟수 증가
+    for _ in range(2):
+        assert client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린, 향료", "product_name": "수분 토너"}).json()["shared"] is True
+    with SessionLocal() as db:
+        from app.models import ProductIngredientList
+        rows = db.query(ProductIngredientList).all()
+    assert [(r.name, r.confirmations) for r in rows] == [("수분 토너", 2)]
+    # 성분이 너무 적거나 제품명이 없으면 저장 안 함
+    assert client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린", "product_name": "짧은 것"}).json()["shared"] is False
+    assert client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린, 향료"}).json()["shared"] is False

@@ -33,11 +33,11 @@
   <div id="app" class="hidden">
     <section class="card">
       <h2>전성분 분석</h2>
-      <p class="muted">화장품 뒷면의 전성분을 찍거나 붙여넣으면 식약처 성분 정보와 내 피부 정보로 확인해 드려요.</p>
+      <p class="muted">화장품 뒷면의 전성분(또는 앞면)을 찍거나 성분을 붙여넣으면 식약처 성분 정보와 내 피부 정보로 확인해 드려요.</p>
       <div class="tabs"><button type="button" id="tabPhoto">📷 사진</button><button type="button" id="tabText" class="ghost">⌨️ 글자 입력</button></div>
       <form id="photoForm" class="stack">
         <label class="drop" id="drop"><input type="file" id="file" accept="image/*" capture="environment" hidden>
-          <span id="dropText">여기를 눌러 전성분 사진을 찍거나 선택하세요<br><small>성분 목록이 화면에 꽉 차게, 가까이서 흔들리지 않게 찍어 주세요 (멀리서 찍으면 글자를 잘못 읽을 수 있어요)</small></span></label>
+          <span id="dropText">여기를 눌러 화장품 사진을 찍거나 선택하세요<br><b>뒷면(전성분)</b>이 가장 정확하고, <b>앞면</b>만 찍어도 등록된 제품이면 찾아드려요<br><small>성분 목록이 화면에 꽉 차게, 가까이서 흔들리지 않게 찍어 주세요 (멀리서 찍으면 글자를 잘못 읽을 수 있어요)</small></span></label>
         <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
         <button id="photoBtn" disabled>분석하기</button>
       </form>
@@ -47,11 +47,18 @@
         <button>분석하기</button>
       </form>
       <div class="error" id="err"></div>
-      <p class="notice">사진은 분석 후 저장하지 않아요. 얼굴이나 개인정보가 찍히지 않게 해 주세요. 분석 결과는 참고용이며, 피부 이상이 있으면 사용을 멈추고 전문가와 상담하세요.</p>
+      <p class="notice">사진은 분석 후 저장하지 않아요. 얼굴이나 개인정보가 찍히지 않게 해 주세요. 제품 이름과 전성분 목록(개인정보 아님)은 다른 사용자도 쓸 수 있게 저장돼요. 분석 결과는 참고용이며, 피부 이상이 있으면 사용을 멈추고 전문가와 상담하세요.</p>
+    </section>
+
+    <section class="card hidden" id="frontCard">
+      <h2 id="frontTitle">앞면을 확인했어요</h2>
+      <p>아직 RUTI에 이 제품의 전성분 정보가 없어요. <b>뒷면의 전성분</b>을 찍어 주시면 바로 분석하고, 다음 분들은 앞면만 찍어도 쓸 수 있게 저장할게요.</p>
+      <button type="button" id="flipBtn">뒷면 찍기</button>
     </section>
 
     <section class="card hidden" id="resultCard">
       <div class="row"><h2 style="margin:0" id="resultTitle">분석 결과</h2><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
+      <p class="notice hidden" id="fromDb" style="margin:0 0 8px"></p>
       <div class="chips" id="chips"></div>
       <p class="notice hidden" id="readNote" style="margin:0 0 12px">⚠️ 사진 속 글자가 일부 흐리거나 작아서 정확하지 않을 수 있어요. 실제 성분표와 비교해 보시고, 가능하면 성분표가 화면에 꽉 차게 가까이서 다시 찍어 주세요.</p>
       <div id="items"></div>
@@ -119,8 +126,22 @@ function itemView(it){
       ...tags.map(([c, t]) => el('span', {class: 't ' + c}, t))),
     detail);
 }
+function showFrontNotFound(r){
+  $('resultCard').classList.add('hidden');
+  $('frontTitle').textContent = r.title ? `'${r.title}' 앞면을 확인했어요` : '제품 앞면을 확인했어요';
+  if (r.title) $('photoForm').product_name.value = r.title;
+  $('frontCard').classList.remove('hidden'); $('frontCard').scrollIntoView({behavior: 'smooth'});
+}
+$('flipBtn').addEventListener('click', () => $('file').click());
+
 function showResult(r){
+  if (r.mode === 'front_not_found') return showFrontNotFound(r);
+  $('frontCard').classList.add('hidden');
   current = r;
+  const fromDb = r.mode === 'front_found' && r.from_database;
+  $('fromDb').textContent = fromDb ? `📦 앞면 사진으로 찾은 전성분이에요 (사용자 ${r.from_database.confirmations}명이 확인한 정보). 실제 포장과 다를 수 있으니 뒷면도 확인해 주세요.`
+    : r.shared ? '✅ 이 제품의 전성분을 RUTI에 저장했어요. 다음 분들은 앞면만 찍어도 바로 분석할 수 있어요.' : '';
+  $('fromDb').classList.toggle('hidden', !(fromDb || r.shared));
   const s = Object.assign({kr_ban: 0, kr_limit: 0, foreign_regulated: 0, memory_conflict: 0, unknown: 0}, r.summary);
   $('resultTitle').textContent = r.product_name ? r.product_name + ' 분석 결과' : '분석 결과';
   $('chips').replaceChildren(

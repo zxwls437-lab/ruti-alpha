@@ -151,3 +151,20 @@ class LlmUsage(Base):
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class ProductIngredientList(Base):
+    """사용자들이 뒷면을 찍어 함께 채우는 제품별 전성분 (앞면 사진으로 찾을 때 사용).
+    같은 제품에 같은 목록이 다시 등록되면 confirmations가 올라가 신뢰도가 높아진다. 개인정보는 저장하지 않는다."""
+    __tablename__ = "product_ingredient_lists"
+    __table_args__ = (UniqueConstraint("name_key", "list_hash"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    brand: Mapped[str] = mapped_column(String(150), default="")
+    name: Mapped[str] = mapped_column(String(200))
+    name_key: Mapped[str] = mapped_column(String(400), index=True)
+    ingredients: Mapped[str] = mapped_column(Text)  # JSON 배열
+    list_hash: Mapped[str] = mapped_column(String(64))
+    confirmations: Mapped[int] = mapped_column(Integer, default=1)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
