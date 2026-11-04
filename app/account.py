@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .config import env
 from .db import get_db, utcnow
 from .models import (AuthSession, ChatMessage, Consent, Memory, Product, ProductIngredientList, Review, ReviewVote,
-                     ScanResult, User)
+                     ScanResult, User, VanityItem)
 from .security import _token_hash, bearer, current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/me", tags=["회원 정보"])
@@ -201,6 +201,8 @@ def export_my_data(user: User = Depends(current_user), db: Session = Depends(get
                             for c in rows(Consent, Consent.id)],
         "skin_info": [{"content": m.content, "at": m.created_at.isoformat()} for m in rows(Memory, Memory.id)],
         "chat_messages": [{"role": m.role, "content": m.content, "at": m.created_at.isoformat()} for m in rows(ChatMessage, ChatMessage.id)],
+        "vanity": [{"product_name": v.product_name, "ingredients": json.loads(v.ingredients), "at": v.created_at.isoformat()}
+                   for v in rows(VanityItem, VanityItem.id)],
         "reviews": [{"product_name": r.product_name, "brand": r.brand, "rating": r.rating, "text": r.text, "at": r.created_at.isoformat()}
                     for r in rows(Review, Review.id)],
         "scans": [{"product_name": s.product_name, "source": s.source, "result": json.loads(s.result), "at": s.created_at.isoformat()}
@@ -224,7 +226,7 @@ def delete_account(payload: DeleteAccountIn, user: User = Depends(current_user),
     my_reviews = list(db.scalars(select(Review.id).where(Review.user_id == uid)))
     if my_reviews:
         db.execute(delete(ReviewVote).where(ReviewVote.review_id.in_(my_reviews)))
-    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review):
+    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review, VanityItem):
         db.execute(delete(model).where(model.user_id == uid))
     db.execute(update(Product).where(Product.submitted_by == uid).values(submitted_by=None))
     db.execute(update(Product).where(Product.reviewed_by == uid).values(reviewed_by=None))

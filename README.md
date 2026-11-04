@@ -65,6 +65,12 @@ Copy-Item .env.example .env
 
 보호된 API는 `Authorization: Bearer <로그인 토큰>` 헤더가 필요합니다.
 
+## 내 화장대 (`app/vanity.py`)
+- 분석 결과에서 "내 화장대에 담기" (또는 제품명+전성분 글자로 추가), 최대 `RUTI_VANITY_MAX`개
+- 제품끼리 성분 조합을 **고정 규칙**으로 점검 (AI 아님, 일반 스킨케어 안내 수준):
+  레티놀류+각질 제거(AHA·BHA·PHA)가 서로 다른 제품에 / 각질 제거 성분 여러 제품 / 레티놀류 중복 / 임신·수유+레티놀류 / 향료 민감+향료 / 비타민C+레티놀·각질 제거(참고)
+- API: `GET /vanity`, `POST /vanity {scan_id}` 또는 `{product_name, text}`, `DELETE /vanity/{id}` · 탈퇴·내보내기 반영
+
 ## 사용 후기 (`app/reviews.py`)
 - 제품은 브랜드+제품명 정규화 키로 묶음 (제품별 전성분과 같은 방식). 한 제품당 1인 1후기(다시 쓰면 수정), 하루 `RUTI_REVIEWS_PER_DAY`개
 - 별점, 보습 만족 / 자극 / 재구매 체크, 본문(10~1000자). **사진은 받지 않음**(얼굴 사진 문제 방지)

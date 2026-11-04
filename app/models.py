@@ -219,3 +219,14 @@ class ReviewVote(Base):
     kind: Mapped[str] = mapped_column(String(10))  # helpful | report
     reason: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class VanityItem(Base):
+    """내 화장대: 가지고 있는(쓰는) 제품과 전성분."""
+    __tablename__ = "vanity_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    product_name: Mapped[str] = mapped_column(String(200))
+    ingredients: Mapped[str] = mapped_column(Text)  # JSON 배열
+    scan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
