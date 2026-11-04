@@ -102,6 +102,18 @@ data.go.kr에서 활용 승인을 받은 API로 성분 사전과 기능성 화�
 - 상담 시 질문에 나온 성분은 성분 사전에서 찾아 AI에 전달하고(사용제한 원료면 주의 안내), 제품은 DB에서 질문 키워드로 후보를 골라 전달합니다.
 - 출처 표기: 식품의약품안전처, 공공데이터포털(data.go.kr)
 
+## AI 호출 관문 (`app/llm.py`)
+모든 AI 호출(상담·사진 분석)은 한 곳을 거칩니다. [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi)(MIT)의 라우터 설계를 참고했습니다.
+- **예비 AI 자동 전환**: 주 공급자가 429·5xx·시간초과·인증 오류면 대기시간(15초→최대 5분)을 걸고 `LLM_FALLBACK_*` 공급자로 전환
+- **응답 캐시**: 정확히 같은 요청(같은 질문·맥락, 같은 사진)은 AI를 다시 부르지 않음 (메모리, 기본 500개·24시간)
+- **구조화 출력 대체**: json_schema를 지원하지 않는 공급자는 json_object + 지시문으로 재시도, 응답에서 JSON만 추출
+- **프롬프트 압축**: 빈 값·출처 URL 제거, 사용법·보고일 줄 제거, 긴 글 자르기, 공백 없는 JSON, 후보 제품 15개
+- **사용량·비용**: `/admin/llm-usage` 및 관리자 화면 표, `RUTI_DAILY_BUDGET_USD`로 하루 비용 상한
+- 가상 벤치마크: `python -m scripts.benchmark_llm`
+
+**개발할 때만** 로컬 FreeLLMAPI를 연결해 무료로 테스트할 수 있습니다: `OPENAI_BASE_URL=http://localhost:3001/v1`, `OPENAI_API_KEY=<FreeLLMAPI 통합 키>`, `OPENAI_MODEL=auto`.
+FreeLLMAPI는 스스로 "개인 실험용, 실서비스 전에 유료 API로 교체"라고 안내하고, 무료 등급 약관상 여러 사용자에게 제공하는 서비스에 쓰면 안 됩니다. 실제 사용자 트래픽에는 유료 API를 쓰세요.
+
 ## 상담 품질 점검
 `data/eval_questions.json`의 질문 30개(보습·트러블·자극·성분·임신·의료·응급·목록 외 브랜드·주제 외·프롬프트 공격)를 실제 AI에 보내고 보고서를 만듭니다.
 ```powershell

@@ -29,6 +29,12 @@
       <div id="list"></div>
     </section>
     <section class="card">
+      <h2>AI 사용량 (최근 7일)</h2>
+      <p class="muted">비용은 .env의 단가 기준 추정치예요. 캐시 적중은 AI를 부르지 않아 비용이 없어요.</p>
+      <div id="usageTotal" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="overflow-x:auto"><table id="usageTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
+    </section>
+    <section class="card">
       <h2>제품 직접 등록</h2>
       <form id="addForm" class="stack">
         <div class="grid2">
@@ -85,12 +91,25 @@ async function load(){
   }));
   if (!products.length) $('list').append(el('p', {class: 'muted'}, '해당하는 제품이 없어요.'));
 }
+async function loadUsage(){
+  const {items, total} = await api('/admin/llm-usage?days=7');
+  const won = usd => '$' + usd.toFixed(4);
+  $('usageTotal').replaceChildren(
+    el('span', {class: 'tag'}, `AI 호출 ${total.calls}회`), el('span', {class: 'tag'}, `캐시 적중 ${total.cache_hits}회`),
+    el('span', {class: 'tag'}, `추정 비용 ${won(total.cost_usd)}`), el('span', {class: 'tag'}, `호출당 ${won(total.cost_per_call_usd)}`));
+  const head = ['날짜', '용도', '공급자', '호출', '캐시', '오류', '예비 전환', '입력 토큰', '출력 토큰', '비용'];
+  const td = (t, th) => el(th ? 'th' : 'td', {style: 'padding:6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap'}, t);
+  $('usageTable').replaceChildren(el('tr', {}, ...head.map(h => td(h, true))),
+    ...items.map(r => el('tr', {}, ...[r.day, r.purpose, r.provider, r.calls, r.cache_hits, r.errors, r.fallbacks,
+      r.prompt_tokens.toLocaleString(), r.completion_tokens.toLocaleString(), won(r.cost_usd)].map(v => td(String(v))))));
+  if (!items.length) $('usageTable').replaceChildren(el('tr', {}, td('아직 기록이 없어요.')));
+}
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
-  $('app').classList.remove('hidden'); load();
+  $('app').classList.remove('hidden'); load(); loadUsage();
 }
 $('addForm').addEventListener('submit', async e => {
   e.preventDefault(); $('addErr').textContent = '';

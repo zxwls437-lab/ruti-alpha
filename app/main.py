@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from . import ai, retrieval, scan
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
-from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, Memory, Product, User
+from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
 from .security import bearer, create_session, current_user, hash_password, limiter, require_admin, revoke_session, verify_password
 from .status import STATUS
 
@@ -366,6 +366,21 @@ def admin_reject(product_id: int, payload: ReviewIn = ReviewIn(), admin: User = 
     return _review(product_id, PRODUCT_REJECTED, payload.note, admin, db)
 
 
+@app.get("/admin/llm-usage", tags=["관리자"])
+def admin_llm_usage(days: int = 7, _admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """AI 사용량·추정 비용 (최근 N일). 비용은 .env의 단가 기준 추정치."""
+    from datetime import date, timedelta
+    since = (date.today() - timedelta(days=max(1, min(days, 90)) - 1)).isoformat()
+    rows = db.scalars(select(LlmUsage).where(LlmUsage.day >= since).order_by(LlmUsage.day.desc(), LlmUsage.purpose)).all()
+    items = [{"day": r.day, "provider": r.provider, "model": r.model, "purpose": r.purpose, "calls": r.calls, "cache_hits": r.cache_hits,
+              "errors": r.errors, "fallbacks": r.fallbacks, "prompt_tokens": r.prompt_tokens, "completion_tokens": r.completion_tokens,
+              "cost_usd": round(r.cost_usd, 6)} for r in rows]
+    calls = sum(i["calls"] for i in items)
+    return {"items": items, "total": {"calls": calls, "cache_hits": sum(i["cache_hits"] for i in items),
+                                      "cost_usd": round(sum(i["cost_usd"] for i in items), 6),
+                                      "cost_per_call_usd": round(sum(i["cost_usd"] for i in items) / calls, 6) if calls else 0}}
+
+
 # ---------- AI 상담 ----------
 
 def _ids_to_str(ids: list[int]) -> str:
@@ -387,7 +402,7 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
         status_code = "SAFETY_HOLD"
     else:
         memories = list(db.scalars(select(Memory.content).where(Memory.user_id == user.id).order_by(Memory.id.desc()).limit(20)).all())
-        limit = env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 30)
+        limit = env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 15)
         products = retrieval.candidate_products(db, message, memories, limit)
         ingredients = retrieval.ingredients_in_text(db, message + " " + " ".join(memories))
         turns = env_int("RUTI_HISTORY_TURNS", 6) * 2

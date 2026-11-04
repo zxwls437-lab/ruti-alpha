@@ -13,13 +13,14 @@ import threading
 import time
 from dataclasses import dataclass
 
-import httpx
+import httpx  # noqa: F401  (테스트에서 httpx.post를 바꿔 끼움)
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .config import env, env_int
+from . import llm
+from .config import env_int
 from .db import get_db
 from .models import Ingredient, Memory, ScanResult, User
 from .security import current_user, limiter
@@ -206,36 +207,28 @@ class OcrResult:
 
 
 def read_ingredients_from_image(raw: bytes, mime: str) -> OcrResult:
-    key = env("OPENAI_API_KEY")
-    if not key:
-        raise ScanError(503, "사진 분석에는 AI 연결이 필요해요. 성분표 글자를 붙여넣어 분석해 주세요.", "ai_not_configured")
-    body = {
-        "model": env("OPENAI_VISION_MODEL") or env("OPENAI_MODEL", "gpt-4.1-mini"),
-        "messages": [
-            {"role": "system", "content": OCR_PROMPT},
-            {"role": "user", "content": [
-                {"type": "text", "text": "이 사진의 전성분을 옮겨 적어 주세요."},
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(raw).decode()}", "detail": "high"}},
-            ]},
-        ],
-        "max_completion_tokens": 2000,
-        "response_format": {"type": "json_schema", "json_schema": OCR_SCHEMA},
-    }
-    base_url = env("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    messages = [
+        {"role": "system", "content": OCR_PROMPT},
+        {"role": "user", "content": [
+            {"type": "text", "text": "이 사진의 전성분을 옮겨 적어 주세요."},
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(raw).decode()}", "detail": "high"}},
+        ]},
+    ]
     try:
-        resp = httpx.post(f"{base_url}/chat/completions", json=body, headers={"Authorization": f"Bearer {key}"},
+        # 같은 사진을 다시 올리면 캐시에서 바로 응답 (AI 비용 0)
+        result = llm.chat(messages, purpose="scan", schema=OCR_SCHEMA, max_tokens=2000, vision=True,
                           timeout=env_int("RUTI_SCAN_TIMEOUT_SECONDS", 60))
-    except httpx.HTTPError:
+    except llm.LLMError as e:
+        if e.code == "not_configured":
+            raise ScanError(503, "사진 분석에는 AI 연결이 필요해요. 성분표 글자를 붙여넣어 분석해 주세요.", "ai_not_configured") from None
+        if e.code in ("quota", "budget"):
+            raise ScanError(503, "지금은 사진 분석 요청이 많아요. 잠시 후 다시 시도하거나 글자를 붙여넣어 주세요.", "ai_quota_or_rate_limit") from None
         raise ScanError(503, "AI 서비스에 연결하지 못했어요. 잠시 후 다시 시도하거나 글자를 붙여넣어 주세요.", "ai_error") from None
-    if resp.status_code == 429:
-        raise ScanError(503, "AI 요청 한도 또는 크레딧 문제가 있어요.", "ai_quota_or_rate_limit")
-    if resp.status_code >= 400:
-        raise ScanError(503, "AI 서비스에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.", "ai_error")
     try:
-        data = json.loads(resp.json()["choices"][0]["message"]["content"] or "{}")
+        data = json.loads(result.content or "{}")
         names = [str(x).strip() for x in data.get("ingredients", []) if str(x).strip()]
         return OcrResult(names, bool(data.get("is_ingredient_list")), str(data.get("note", ""))[:200])
-    except (ValueError, KeyError, IndexError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         raise ScanError(503, "AI 응답을 해석하지 못했어요. 다시 시도해 주세요.", "ai_error") from None
 
 

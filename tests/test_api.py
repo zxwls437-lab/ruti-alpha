@@ -121,8 +121,8 @@ def test_conversation_without_ai_key(client):
 
 
 class FakeResponse:
-    def __init__(self, status_code, payload=None):
-        self.status_code, self._payload = status_code, payload
+    def __init__(self, status_code, payload=None, text=""):
+        self.status_code, self._payload, self.text = status_code, payload, text
 
     def json(self):
         return self._payload

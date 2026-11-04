@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base, utcnow
@@ -133,3 +133,21 @@ class ScanResult(Base):
     product_name: Mapped[str] = mapped_column(String(200), default="")
     result: Mapped[str] = mapped_column(Text)  # JSON
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class LlmUsage(Base):
+    """AI 사용량 (하루·공급자·모델·용도별 합계)."""
+    __tablename__ = "llm_usage"
+    __table_args__ = (UniqueConstraint("day", "provider", "model", "purpose"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    provider: Mapped[str] = mapped_column(String(30))
+    model: Mapped[str] = mapped_column(String(100))
+    purpose: Mapped[str] = mapped_column(String(30))
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+    cache_hits: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[int] = mapped_column(Integer, default=0)
+    fallbacks: Mapped[int] = mapped_column(Integer, default=0)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)

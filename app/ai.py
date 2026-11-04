@@ -3,9 +3,10 @@ import json
 import re
 from dataclasses import dataclass, field
 
-import httpx
+import httpx  # noqa: F401  (테스트에서 httpx.post를 바꿔 끼움)
 
-from .config import env, env_int
+from . import llm
+from .config import env_int
 
 # 의료 진료가 필요할 수 있는 표현. 감지되면 AI를 호출하지 않는다.
 SAFETY_TERMS = (
@@ -90,15 +91,47 @@ def select_relevant_products(message: str, memories: list[str], products: list[d
     return sorted(products, key=lambda p: (-score(p), p["id"]))[:limit]
 
 
+def _compact(d: dict, limits: dict[str, int]) -> dict:
+    """프롬프트 압축: 빈 값 제거, 긴 글은 잘라서 보낸다 (FreeLLMAPI의 프롬프트 압축 아이디어 참고)."""
+    out = {}
+    for k, v in d.items():
+        if k in ("source_url",) or v in ("", None, [], "manual"):
+            continue
+        if isinstance(v, str) and k in limits and len(v) > limits[k]:
+            v = v[: limits[k]] + "…"
+        out[k] = v
+    return out
+
+
+_LOW_VALUE_LINES = re.compile(r"^(사용법|보고/심사일|\[식약처 [^\]]*\])", re.MULTILINE)
+
+
+def _product_for_prompt(p: dict) -> dict:
+    """추천 판단에 거의 쓰이지 않는 줄(사용법·보고일·출처 머리말)은 빼고 보낸다. 출처는 source 필드로 남는다."""
+    q = dict(p)
+    if q.get("description"):
+        q["description"] = "\n".join(line for line in q["description"].splitlines() if line.strip() and not _LOW_VALUE_LINES.match(line))
+    return _compact(q, {"description": 200, "key_ingredients": 200, "cautions": 150})
+
+
+def _dumps(obj) -> str:
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+
+
 def build_messages(message: str, memories: list[str], products: list[dict], history: list[dict],
                    ingredients: list[dict] | None = None) -> list[dict]:
+    prods = [_product_for_prompt(p) for p in products]
+    ings = [_compact(i, {"description": 300, "restriction": 400, "synonyms": 120}) for i in (ingredients or [])]
     data = (
-        f"<user_memories>{json.dumps(memories, ensure_ascii=False)}</user_memories>\n"
-        f"<approved_products>{json.dumps(products, ensure_ascii=False)}</approved_products>\n"
-        f"<ingredient_info>{json.dumps(ingredients or [], ensure_ascii=False)}</ingredient_info>"
+        f"<user_memories>{_dumps(memories)}</user_memories>\n"
+        f"<approved_products>{_dumps(prods)}</approved_products>\n"
+        f"<ingredient_info>{_dumps(ings)}</ingredient_info>"
     )
+    # 고정된 지시문을 맨 앞에 둬서 공급자의 자동 프롬프트 캐싱이 잘 걸리게 한다
     msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "system", "content": data}]
-    msgs += [{"role": h["role"], "content": h["content"]} for h in history]
+    for h in history:
+        content = h["content"] if h["role"] == "user" else h["content"][:600]
+        msgs.append({"role": h["role"], "content": content})
     msgs.append({"role": "user", "content": message})
     return msgs
 
@@ -118,41 +151,24 @@ def parse_model_output(text: str, allowed_ids: set[int]) -> tuple[str, list[int]
         return text.strip(), []
 
 
+ERROR_MESSAGES = {
+    "not_configured": ("AI 연결 설정이 필요합니다. 관리자에게 OPENAI_API_KEY 설정을 요청해 주세요.", "ai_not_configured"),
+    "auth": ("AI API 키가 올바르지 않습니다. 관리자에게 문의해 주세요.", "ai_auth_error"),
+    "quota": ("AI 요청 한도 또는 크레딧 문제가 있습니다. 잠시 후 다시 시도해 주세요.", "ai_quota_or_rate_limit"),
+    "budget": ("오늘 준비된 AI 상담량을 모두 사용했어요. 내일 다시 이용해 주세요.", "ai_budget_exceeded"),
+    "error": ("AI 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.", "ai_error"),
+}
+
+
 def generate_answer(message: str, memories: list[str], products: list[dict], history: list[dict],
                     ingredients: list[dict] | None = None) -> AIResult:
-    key = env("OPENAI_API_KEY")
-    if not key:
-        return AIResult("AI 연결 설정이 필요합니다. 관리자에게 OPENAI_API_KEY 설정을 요청해 주세요.", "ai_not_configured")
-
-    selected = select_relevant_products(message, memories, products, env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 30))
-    body = {
-        "model": env("OPENAI_MODEL", "gpt-4.1-mini"),
-        "messages": build_messages(message, memories, selected, history, ingredients),
-        "max_completion_tokens": env_int("RUTI_MAX_OUTPUT_TOKENS", 500),
-        "response_format": {"type": "json_schema", "json_schema": RESPONSE_SCHEMA},
-    }
-    base_url = env("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    selected = select_relevant_products(message, memories, products, env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 15))
     try:
-        resp = httpx.post(
-            f"{base_url}/chat/completions",
-            json=body,
-            headers={"Authorization": f"Bearer {key}"},
-            timeout=env_int("RUTI_AI_TIMEOUT_SECONDS", 30),
-        )
-    except httpx.HTTPError:
-        return AIResult("AI 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.", "ai_error")
-
-    # API 키, 응답 본문, 개인정보는 사용자에게 노출하지 않는다.
-    if resp.status_code == 401:
-        return AIResult("AI API 키가 올바르지 않습니다. 관리자에게 문의해 주세요.", "ai_auth_error")
-    if resp.status_code == 429:
-        return AIResult("AI 요청 한도 또는 크레딧 문제가 있습니다. API 결제 및 사용 한도를 확인해 주세요.", "ai_quota_or_rate_limit")
-    if resp.status_code >= 400:
-        return AIResult("AI 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.", "ai_error")
-    try:
-        content = resp.json()["choices"][0]["message"]["content"] or ""
-    except (ValueError, KeyError, IndexError, TypeError):
-        return AIResult("AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.", "ai_error")
-
-    answer, ids = parse_model_output(content, {p["id"] for p in selected})
+        result = llm.chat(build_messages(message, memories, selected, history, ingredients), purpose="chat",
+                          schema=RESPONSE_SCHEMA, max_tokens=env_int("RUTI_MAX_OUTPUT_TOKENS", 500),
+                          timeout=env_int("RUTI_AI_TIMEOUT_SECONDS", 30))
+    except llm.LLMError as e:
+        text, engine = ERROR_MESSAGES.get(e.code, ERROR_MESSAGES["error"])
+        return AIResult(text, engine)
+    answer, ids = parse_model_output(result.content, {p["id"] for p in selected})
     return AIResult(answer, "openai", ids)

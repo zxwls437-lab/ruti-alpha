@@ -3,6 +3,7 @@ import os
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["RUTI_PBKDF2_ITERATIONS"] = "1000"
 os.environ.pop("OPENAI_API_KEY", None)
+os.environ["RUTI_LLM_COOLDOWN_SECONDS"] = "0"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,6 +13,7 @@ from app.main import app
 from app.models import User
 from app.retrieval import ingredient_names
 from app.scan import index as scan_index
+from app import llm
 from app.security import limiter
 
 
@@ -22,6 +24,9 @@ def client():
     limiter.reset()
     ingredient_names.reset()
     scan_index.reset()
+    llm.cache.reset()
+    llm.cooldowns.reset()
+    llm.usage.reset()
     with TestClient(app) as c:
         yield c
 
