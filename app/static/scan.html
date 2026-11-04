@@ -50,6 +50,12 @@
       <p class="notice">사진은 분석 후 저장하지 않아요. 얼굴이나 개인정보가 찍히지 않게 해 주세요. 제품 이름과 전성분 목록(개인정보 아님)은 다른 사용자도 쓸 수 있게 저장돼요. 분석 결과는 참고용이며, 피부 이상이 있으면 사용을 멈추고 전문가와 상담하세요.</p>
     </section>
 
+    <section class="card hidden" id="pickCard">
+      <h2>사진에 제품이 여러 개 있어요</h2>
+      <p class="muted">어떤 제품을 볼까요?</p>
+      <div class="stack" id="pickList"></div>
+    </section>
+
     <section class="card hidden" id="frontCard">
       <h2 id="frontTitle">앞면을 확인했어요</h2>
       <p>아직 RUTI에 이 제품의 전성분 정보가 없어요. <b>뒷면의 전성분</b>을 찍어 주시면 바로 분석하고, 다음 분들은 앞면만 찍어도 쓸 수 있게 저장할게요.</p>
@@ -126,8 +132,16 @@ function itemView(it){
       ...tags.map(([c, t]) => el('span', {class: 't ' + c}, t))),
     detail);
 }
+function hideCards(){ for (const id of ['pickCard', 'frontCard', 'resultCard']) $(id).classList.add('hidden'); }
+function showPicker(r){
+  hideCards();
+  $('pickList').replaceChildren(...r.products.map((p, i) => el('button', {type: 'button', class: 'ghost', onclick: () => {
+    run('/scan/image', {image: imageData, product_name: '', selected: i}, $('photoBtn'));
+  }}, p.title || `제품 ${i + 1}`)));
+  $('pickCard').classList.remove('hidden'); $('pickCard').scrollIntoView({behavior: 'smooth'});
+}
 function showFrontNotFound(r){
-  $('resultCard').classList.add('hidden');
+  hideCards();
   $('frontTitle').textContent = r.title ? `'${r.title}' 앞면을 확인했어요` : '제품 앞면을 확인했어요';
   if (r.title) $('photoForm').product_name.value = r.title;
   $('frontCard').classList.remove('hidden'); $('frontCard').scrollIntoView({behavior: 'smooth'});
@@ -135,14 +149,16 @@ function showFrontNotFound(r){
 $('flipBtn').addEventListener('click', () => $('file').click());
 
 function showResult(r){
+  if (r.mode === 'multiple_products') return showPicker(r);
   if (r.mode === 'front_not_found') return showFrontNotFound(r);
   if (!r.items || !r.summary) { $('err').textContent = '분석 결과를 표시하지 못했어요. Ctrl+F5로 새로고침한 뒤 다시 시도해 주세요.'; return; }
-  $('frontCard').classList.add('hidden');
+  hideCards();
   current = r;
   const fromDb = r.mode === 'front_found' && r.from_database;
   $('fromDb').textContent = fromDb ? `📦 앞면 사진으로 찾은 전성분이에요 (사용자 ${r.from_database.confirmations}명이 확인한 정보). 실제 포장과 다를 수 있으니 뒷면도 확인해 주세요.`
     : r.shared ? '✅ 이 제품의 전성분을 RUTI에 저장했어요. 다음 분들은 앞면만 찍어도 바로 분석할 수 있어요.' : '';
-  $('fromDb').classList.toggle('hidden', !(fromDb || r.shared));
+  if (r.multiple_products && !r.shared) $('fromDb').textContent = '⚠️ 사진에 제품이 여러 개 있어요. 이 전성분이 어느 제품 것인지 확인해 주세요. 정확한 저장을 위해 한 번에 한 제품씩 찍어 주세요.';
+  $('fromDb').classList.toggle('hidden', !(fromDb || r.shared || r.multiple_products));
   const s = Object.assign({kr_ban: 0, kr_limit: 0, foreign_regulated: 0, memory_conflict: 0, unknown: 0}, r.summary);
   $('resultTitle').textContent = r.product_name ? r.product_name + ' 분석 결과' : '분석 결과';
   $('chips').replaceChildren(

@@ -107,10 +107,12 @@ def test_image_scan_without_key(client):
     assert r.status_code == 503 and "붙여넣어" in r.json()["detail"]
 
 
-def ocr_response(names, is_list=True, note="", readability="clear", side=None, brand="", product_name=""):
+def ocr_response(names, is_list=True, note="", readability="clear", side=None, brand="", product_name="", products=None):
     side = side or ("back" if names else "other")
+    if products is None:
+        products = [{"brand": brand, "product_name": product_name}] if (brand or product_name) else []
     content = json.dumps({"is_ingredient_list": is_list, "ingredients": names, "note": note, "readability": readability,
-                          "side": side, "brand": brand, "product_name": product_name}, ensure_ascii=False)
+                          "side": side, "brand": brand, "product_name": product_name, "products": products}, ensure_ascii=False)
     return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
 
 
@@ -204,3 +206,38 @@ def test_blurry_back_is_not_shared_and_confirmations_count(client, monkeypatch):
     # 성분이 너무 적거나 제품명이 없으면 저장 안 함
     assert client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린", "product_name": "짧은 것"}).json()["shared"] is False
     assert client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린, 향료"}).json()["shared"] is False
+
+
+def test_multiple_products_in_photo(client, monkeypatch):
+    seed_ingredients()
+    a, b = signup(client, "aa1"), signup(client, "bb1")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    calls = {"n": 0}
+    two = [{"brand": "Vaseline", "product_name": "Daily Moisture Lotion"}, {"brand": "", "product_name": "Lemon Verbena Body Lotion"}]
+
+    def front_two(*x, **k):
+        calls["n"] += 1
+        return ocr_response([], False, side="front", brand="Vaseline", product_name="Daily Moisture Lotion", products=two)
+
+    # 레몬 버베나 전성분을 누군가 저장해 둠
+    client.post("/scan/text", headers=a, json={"text": "정제수, 글리세린, 향료", "product_name": "Lemon Verbena Body Lotion"})
+    monkeypatch.setattr(scan.httpx, "post", front_two)
+    r = client.post("/scan/image", headers=b, json={"image": img(9)}).json()
+    assert r["mode"] == "multiple_products" and [p["title"] for p in r["products"]] == ["Vaseline Daily Moisture Lotion", "Lemon Verbena Body Lotion"]
+    r = client.post("/scan/image", headers=b, json={"image": img(9), "selected": 1}).json()
+    assert r["mode"] == "front_found" and r["from_database"]["name"] == "Lemon Verbena Body Lotion"
+    assert calls["n"] == 1  # 고른 뒤 재요청은 캐시라 AI를 다시 부르지 않음
+    r = client.post("/scan/image", headers=b, json={"image": img(9), "selected": 0}).json()
+    assert r["mode"] == "front_not_found" and r["title"] == "Vaseline Daily Moisture Lotion"
+
+
+def test_back_with_multiple_products_not_shared(client, monkeypatch):
+    seed_ingredients()
+    h = signup(client)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    two = [{"brand": "A", "product_name": "크림"}, {"brand": "B", "product_name": "로션"}]
+    monkeypatch.setattr(scan.httpx, "post", lambda *x, **k: ocr_response(["정제수", "글리세린", "향료"], brand="A", product_name="크림", products=two))
+    r = client.post("/scan/image", headers=h, json={"image": img(10)}).json()
+    assert r["mode"] == "back" and r["multiple_products"] is True and r["shared"] is False
+    r = client.post("/scan/image", headers=h, json={"image": img(10), "product_name": "A 크림"}).json()
+    assert r["shared"] is True
