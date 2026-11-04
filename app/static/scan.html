@@ -18,6 +18,11 @@
 .t.red{background:#fde8e8;color:#b4232c}.t.orange{background:#fff1dc;color:#9a5b00}.t.green{background:var(--soft);color:var(--brand)}.t.gray{background:var(--bg);color:var(--muted)}
 @media (prefers-color-scheme:dark){.t.red{background:#4a1d20;color:#ff9aa1}.t.orange{background:#46331a;color:#ffc874}}
 .hist{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.verdict{border-radius:16px;padding:16px;background:var(--soft)}
+.verdict.good{background:#e3f5ee}.verdict.check{background:#fff6e0}.verdict.avoid{background:#fde8e8}
+@media (prefers-color-scheme:dark){.verdict.good{background:#183a32}.verdict.check{background:#3d3218}.verdict.avoid{background:#4a1d20}}
+.vhead{display:flex;align-items:center;gap:10px;font-size:20px}.vicon{font-size:28px}
+.vsum{margin:10px 0 4px;line-height:1.6}.verdict ul{margin:6px 0 0;padding-left:20px;line-height:1.7}
 .notice{font-size:13px;color:var(--muted);background:var(--bg);padding:10px 12px;border-radius:10px;margin-top:10px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan" class="on">성분 분석</a><a href="/admin">관리자</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
@@ -63,12 +68,24 @@
     </section>
 
     <section class="card hidden" id="resultCard">
-      <div class="row"><h2 style="margin:0" id="resultTitle">분석 결과</h2><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
-      <p class="notice hidden" id="fromDb" style="margin:0 0 8px"></p>
-      <div class="chips" id="chips"></div>
-      <p class="notice hidden" id="readNote" style="margin:0 0 12px">⚠️ 사진 속 글자가 일부 흐리거나 작아서 정확하지 않을 수 있어요. 실제 성분표와 비교해 보시고, 가능하면 성분표가 화면에 꽉 차게 가까이서 다시 찍어 주세요.</p>
-      <div id="items"></div>
-      <p class="muted">출처: 식품의약품안전처 화장품 원료성분정보·사용제한 원료정보 (공공데이터포털)</p>
+      <p class="muted" id="resultTitle" style="margin:0 0 8px">분석 결과</p>
+      <div class="verdict" id="verdict">
+        <div class="vhead"><span class="vicon" id="vIcon"></span><strong id="vTitle"></strong></div>
+        <p id="vSummary" class="vsum"></p>
+        <ul id="vPoints"></ul>
+        <p class="muted hidden" id="vLoading">RUTI가 쉬운 말로 정리하고 있어요…</p>
+      </div>
+      <div class="hidden" id="skinAsk">
+        <p style="margin:12px 0 6px"><b>피부 타입을 알려주시면 내 피부에 맞는지까지 봐 드릴게요</b></p>
+        <div class="chips" id="skinChips" style="margin:0"></div>
+      </div>
+      <p class="notice hidden" id="fromDb" style="margin:12px 0 0"></p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="ghost" id="toggleAll" type="button">전체 성분 보기</button><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
+      <div class="hidden" id="allIngredients" style="margin-top:12px">
+        <div class="chips" id="chips"></div>
+        <div id="items"></div>
+        <p class="muted">출처: 식품의약품안전처 화장품 원료성분정보·사용제한 원료정보 (공공데이터포털)</p>
+      </div>
     </section>
 
     <section class="card">
@@ -105,19 +122,19 @@ $('file').addEventListener('change', () => {
 });
 
 const FLAG = {
-  kr_ban: ['red', '국내 사용금지'], kr_limit: ['orange', '국내 사용한도 있음'], foreign_regulated: ['gray', '일부 해외 규제'],
+  kr_ban: ['red', '국내 사용금지'], kr_limit: ['gray', '농도 기준 있음'], foreign_regulated: ['gray', '일부 해외 규제'],
   memory_conflict: ['orange', '내 피부 정보와 충돌'], check_spelling: ['gray', '글자 확인 필요'],
   // 이전 버전 기록 호환
   restricted_kr: ['orange', '국내 규제 정보'], restricted: ['gray', '규제 정보 있음'],
 };
-const WARN_FLAGS = ['kr_ban', 'kr_limit', 'memory_conflict', 'restricted_kr'];
+const WARN_FLAGS = ['kr_ban', 'memory_conflict', 'restricted_kr'];
 const isWarn = it => it.flags.some(f => WARN_FLAGS.includes(f));
 function itemView(it){
   const ing = it.ingredient, tags = [];
   for (const f of ['kr_ban', 'kr_limit', 'restricted_kr', 'foreign_regulated', 'restricted', 'memory_conflict', 'check_spelling'])
     if (it.flags.includes(f) && !(f === 'restricted' && it.flags.includes('restricted_kr'))) tags.push(FLAG[f]);
   if (!ing) tags.push(['gray', '사전에 없음']);
-  if (ing && !tags.some(t => t[0] !== 'gray' || t[1] === '일부 해외 규제')) tags.push(['green', '확인됨']);
+  if (ing && !tags.some(t => t[0] !== 'gray' || t[1] === '일부 해외 규제' || t[1] === '농도 기준 있음')) tags.push(['green', '확인됨']);
   const tone = tags.some(t => t[0] === 'red') ? 'red' : tags.some(t => t[0] === 'orange') ? 'orange' : '';
   const hasInfo = ing && (ing.name_en || ing.description || ing.restriction);
   const detail = hasInfo ? el('details', {},
@@ -160,23 +177,57 @@ function showResult(r){
   if (r.multiple_products && !r.shared) $('fromDb').textContent = '⚠️ 사진에 제품이 여러 개 있어요. 이 전성분이 어느 제품 것인지 확인해 주세요. 정확한 저장을 위해 한 번에 한 제품씩 찍어 주세요.';
   $('fromDb').classList.toggle('hidden', !(fromDb || r.shared || r.multiple_products));
   const s = Object.assign({kr_ban: 0, kr_limit: 0, foreign_regulated: 0, memory_conflict: 0, unknown: 0}, r.summary);
-  $('resultTitle').textContent = r.product_name ? r.product_name + ' 분석 결과' : '분석 결과';
+  $('resultTitle').textContent = (r.product_name ? r.product_name + ' · ' : '') + `성분 ${s.total}개 분석`;
+  renderVerdict(r);
+  $('allIngredients').classList.add('hidden'); $('toggleAll').textContent = `전체 성분 보기 (${s.total}개)`;
+  fillDetails(r);
+  $('resultCard').classList.remove('hidden'); $('resultCard').scrollIntoView({behavior: 'smooth'});
+  if (!r.explanation) explainCurrent();
+}
+function fillDetails(r){
+  const s = Object.assign({kr_ban: 0, kr_limit: 0, foreign_regulated: 0, memory_conflict: 0, unknown: 0}, r.summary);
   $('chips').replaceChildren(
     el('span', {class: 'chip'}, `성분 ${s.total}개`),
     el('span', {class: 'chip' + (s.kr_ban ? ' red' : '')}, `국내 사용금지 ${s.kr_ban}개`),
-    el('span', {class: 'chip' + (s.kr_limit ? ' orange' : '')}, `국내 사용한도 ${s.kr_limit}개`),
+    el('span', {class: 'chip gray'}, `농도 기준 있음 ${s.kr_limit}개`),
     el('span', {class: 'chip' + (s.memory_conflict ? ' orange' : '')}, `내 피부 정보와 충돌 ${s.memory_conflict}개`),
     el('span', {class: 'chip gray'}, `일부 해외 규제 ${s.foreign_regulated}개`),
     el('span', {class: 'chip gray'}, `사전에 없음 ${s.unknown}개`));
-  $('readNote').classList.toggle('hidden', r.readability !== 'partial');
   // 주의 성분을 먼저, 나머지는 표시 순서대로
   const warn = r.items.filter(isWarn);
   const rest = r.items.filter(i => !warn.includes(i));
   $('items').replaceChildren(
-    ...(warn.length ? [el('h3', {}, '주의해서 볼 성분'), ...warn.map(itemView), el('h3', {}, '전체 성분')] : []),
+    ...(warn.length ? [el('h3', {}, '주의해서 볼 성분'), ...warn.map(itemView), el('h3', {}, '나머지 성분')] : []),
     ...rest.map(itemView));
-  $('resultCard').classList.remove('hidden'); $('resultCard').scrollIntoView({behavior: 'smooth'});
 }
+const VERDICT_ICON = {good: '🟢', check: '🟡', avoid: '🔴'};
+function renderVerdict(r){
+  const v = r.verdict || {level: 'check', title: '결과를 확인해 주세요', reasons: [], needs_skin_info: false};
+  const ex = r.explanation;
+  $('verdict').className = 'verdict ' + v.level;
+  $('vIcon').textContent = VERDICT_ICON[v.level] || '🟡'; $('vTitle').textContent = v.title;
+  $('vSummary').textContent = ex ? ex.summary : '';
+  $('vSummary').classList.toggle('hidden', !ex);
+  // 규칙 기반 이유(안전 관련)를 먼저, 그다음 AI 설명
+  const points = [...(v.reasons || []), ...(ex ? ex.points : [])].slice(0, 5);
+  $('vPoints').replaceChildren(...points.map(t => el('li', {}, t)));
+  $('skinAsk').classList.toggle('hidden', !v.needs_skin_info);
+}
+const SKIN_OPTIONS = ['건성 피부', '지성 피부', '복합성 피부', '민감성 피부', '향료에 민감해요', '여드름이 잘 나요'];
+$('skinChips').replaceChildren(...SKIN_OPTIONS.map(t => el('button', {type: 'button', class: 'ghost', style: 'padding:6px 12px', onclick: async (e) => {
+  e.target.disabled = true;
+  try { await api('/memory', {method: 'POST', body: {content: t}}); await explainCurrent(); } catch (err) { $('err').textContent = err.message; }
+}}, t)));
+async function explainCurrent(){
+  if (!current || !current.id) return;
+  $('vLoading').classList.remove('hidden');
+  try { const r = await api(`/scan/${current.id}/explain`, {method: 'POST'}); current = r; renderVerdict(r); fillDetails(r); loadHistory(); }
+  catch {} finally { $('vLoading').classList.add('hidden'); }
+}
+$('toggleAll').addEventListener('click', () => {
+  const open = $('allIngredients').classList.toggle('hidden') === false;
+  $('toggleAll').textContent = open ? '전체 성분 접기' : `전체 성분 보기 (${current.summary.total}개)`;
+});
 async function run(path, body, btn){
   $('err').textContent = ''; btn.disabled = true; const label = btn.textContent; btn.textContent = '분석 중…';
   try { showResult(await api(path, {method: 'POST', body})); loadHistory(); }

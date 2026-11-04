@@ -241,3 +241,64 @@ def test_back_with_multiple_products_not_shared(client, monkeypatch):
     assert r["mode"] == "back" and r["multiple_products"] is True and r["shared"] is False
     r = client.post("/scan/image", headers=h, json={"image": img(10), "product_name": "A 크림"}).json()
     assert r["shared"] is True
+
+
+# ---------- 쉬운 판정 ----------
+
+def _result(**counts):
+    items, n = [], 0
+    for flag, k in counts.items():
+        for j in range(k):
+            n += 1
+            items.append({"input": f"{flag}{j}", "flags": [] if flag == "plain" else ([] if flag == "unknown" else [flag]), "ingredient": None if flag == "unknown" else {}})
+    summary = {"total": len(items), "unknown": counts.get("unknown", 0)}
+    return {"items": items, "summary": summary}
+
+
+def test_verdict_rules():
+    assert scan.build_verdict(_result(plain=10), ["건성 피부"])["level"] == "good"
+    v = scan.build_verdict(_result(plain=10), [])
+    assert v["level"] == "good" and v["needs_skin_info"] and v["title"] == "피해야 할 성분은 보이지 않아요"
+    # 농도 기준 성분(보존제 등)은 판정을 낮추지 않음
+    v = scan.build_verdict(_result(plain=10, kr_limit=2), ["건성"])
+    assert v["level"] == "good" and "기준 안에서" in v["reasons"][0]
+    assert scan.build_verdict(_result(plain=10, kr_ban=1), ["건성"])["level"] == "avoid"
+    assert scan.build_verdict(_result(plain=5, unknown=4), ["건성"])["level"] == "check"
+    assert scan.build_verdict(_result(plain=10), ["건성"], readability="partial")["level"] == "check"
+
+
+def test_verdict_memory_conflict_reason(client):
+    seed_ingredients()
+    with SessionLocal() as db:
+        r = scan.analyze(db, ["정제수", "향료", "글리세린"], ["향료에 민감해요"])
+    v = scan.build_verdict(r, ["향료에 민감해요"])
+    assert v["level"] == "avoid" and v["title"] == "맞지 않을 수 있어요"
+    assert v["reasons"][0] == "향료가 들어 있어요. '향료에 민감해요'라고 알려주셨어요."
+
+
+def test_scan_returns_verdict_and_explain_endpoint(client, monkeypatch):
+    seed_ingredients()
+    h = signup(client)
+    r = client.post("/scan/text", headers=h, json={"text": "정제수, 글리세린, 향료, 나이아신아마이드"}).json()
+    assert r["verdict"]["level"] == "good" and r["verdict"]["needs_skin_info"] is True
+    # AI 없이 설명 요청 → 판정은 유지, 설명은 없음
+    e = client.post(f"/scan/{r['id']}/explain", headers=h).json()
+    assert e["explanation"] is None and e["verdict"]["level"] == "good"
+    # 피부 정보 추가 후 다시 판정 + AI 설명
+    client.post("/memory", headers=h, json={"content": "향료에 민감해요"})
+    sent = {}
+
+    def fake_post(url, json, headers, timeout):
+        sent["body"] = json
+        return FakeResponse(200, {"choices": [{"message": {"content": '{"summary": "향료가 들어 있어 **자극**이 될 수 있어요.", "points": ["글리세린은 보습에 도움을 줄 수 있어요"]}'}}]})
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(scan.httpx, "post", fake_post)
+    e = client.post(f"/scan/{r['id']}/explain", headers=h).json()
+    assert e["verdict"]["level"] == "avoid" and e["summary"]["memory_conflict"] == 1
+    assert e["explanation"] == {"summary": "향료가 들어 있어 자극이 될 수 있어요.", "points": ["글리세린은 보습에 도움을 줄 수 있어요"]}
+    analysis = json.loads(sent["body"]["messages"][1]["content"][len("<analysis>"):-len("</analysis>")])
+    assert analysis["level"] == "avoid" and analysis["user_skin_info"] == ["향료에 민감해요"]
+    # 저장되어 기록에서 다시 볼 수 있음
+    assert client.get(f"/scan/{r['id']}", headers=h).json()["explanation"]["points"][0].startswith("글리세린")
+    assert client.post(f"/scan/{r['id']}/explain", headers=signup(client, "other")).status_code == 404
