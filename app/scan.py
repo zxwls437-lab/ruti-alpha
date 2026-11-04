@@ -432,6 +432,8 @@ def _save(db: Session, user: User, source: str, product_name: str, result: dict)
 def scan_image(payload: ImageScanIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     if not limiter.hit(f"scan:{user.id}", env_int("RUTI_SCAN_PER_DAY", 20), 86400):
         raise HTTPException(429, "오늘 사진 분석 횟수를 모두 사용했어요. 성분표 글자 붙여넣기는 계속 쓸 수 있어요.")
+    from .plans import check_quota  # 순환 import 방지
+    check_quota(db, user, "scan")
     started = time.monotonic()
     try:
         raw, mime = decode_image(payload.image)

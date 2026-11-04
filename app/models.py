@@ -20,6 +20,8 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(50), default="")          # RUTI가 불러주는 이름 (다른 사람에게 안 보임)
     nickname: Mapped[str] = mapped_column(String(30), default="", index=True)  # 커뮤니티에서 보이는 이름
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    plan: Mapped[str] = mapped_column(String(10), default="free")         # free | plus
+    plus_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

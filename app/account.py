@@ -14,6 +14,7 @@ from .config import env
 from .db import get_db, utcnow
 from .models import (AuthSession, ChatMessage, Comment, Consent, Memory, Post, Product, ProductIngredientList, Review,
                      ReviewVote, ScanResult, User, VanityItem)
+from .plans import plan_info
 from .security import _token_hash, bearer, current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/me", tags=["회원 정보"])
@@ -111,6 +112,7 @@ def my_profile(user: User = Depends(current_user), db: Session = Depends(get_db)
         "consent_items": [{"kind": k, "label": label, "required": req} for k, (label, req) in CONSENT_KINDS.items()],
         "terms_version": terms_version(),
         "counts": {"skin_info": count(Memory), "scans": count(ScanResult), "chat_messages": count(ChatMessage)},
+        **plan_info(db, user),
     }
 
 

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import account, ai, community, retrieval, reviews, scan, vanity
+from . import account, ai, community, plans, retrieval, reviews, scan, vanity
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
@@ -57,6 +57,7 @@ app.include_router(account.router)
 app.include_router(reviews.router)
 app.include_router(vanity.router)
 app.include_router(community.router)
+app.include_router(plans.router)
 
 
 @app.middleware("http")
@@ -437,6 +438,7 @@ def _str_to_ids(text: str) -> list[int]:
 def conversation(payload: ConversationIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     if not limiter.hit(f"chat:{user.id}", env_int("RUTI_CHAT_RATE_PER_MIN", 10), 60):
         raise HTTPException(429, "질문이 너무 많아요. 1분 후 다시 시도해 주세요.")
+    plans.check_quota(db, user, "chat")
     message = payload.message.strip()
 
     if ai.needs_safety_hold(message):

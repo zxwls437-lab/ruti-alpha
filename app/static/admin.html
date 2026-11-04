@@ -41,6 +41,17 @@
       <div id="cmList"></div>
     </section>
     <section class="card">
+      <h2>RUTI Plus 지급 (테스터용)</h2>
+      <p class="muted">결제 연동 전까지 테스터에게 Plus를 지급하거나 회수할 수 있어요.</p>
+      <form id="planForm" class="row" style="flex-wrap:wrap">
+        <input name="username" placeholder="아이디" required>
+        <select name="plan"><option value="plus">Plus 지급</option><option value="free">무료로 변경</option></select>
+        <input name="days" type="number" min="0" max="3660" value="30" aria-label="기간(일), 0이면 기한 없음" style="max-width:110px">
+        <button>적용</button>
+      </form>
+      <div class="muted" id="planMsg"></div>
+    </section>
+    <section class="card">
       <h2>AI 사용량 (최근 7일)</h2>
       <p class="muted">비용은 .env의 단가 기준 추정치예요. 캐시 적중은 AI를 부르지 않아 비용이 없어요.</p>
       <div id="usageTotal" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
@@ -144,6 +155,12 @@ async function loadCommunity(){
       el('button', {class: 'danger', onclick: () => act(it, 'delete')}, '삭제')))));
   if (!items.length) $('cmList').append(el('p', {class: 'muted'}, '해당하는 글이 없어요.'));
 }
+$('planForm').addEventListener('submit', async e => {
+  e.preventDefault(); const f = e.target;
+  try { const r = await api(`/admin/users/${encodeURIComponent(f.username.value.trim())}/plan`, {method: 'POST', body: {plan: f.plan.value, days: Number(f.days.value)}});
+    $('planMsg').textContent = `${r.username}: ${r.plan === 'plus' ? 'Plus' : '무료'}${r.plus_until ? ' (' + r.plus_until.slice(0, 10) + '까지)' : ''}`; }
+  catch (err) { $('planMsg').textContent = err.message; }
+});
 async function loadUsage(){
   const {items, total} = await api('/admin/llm-usage?days=7');
   const won = usd => '$' + usd.toFixed(4);

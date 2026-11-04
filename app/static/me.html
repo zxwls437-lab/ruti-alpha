@@ -37,6 +37,7 @@
         <div style="flex:1;min-width:0"><h2 style="margin:0" id="pName"></h2><div class="muted" id="pSub"></div></div>
       </div>
       <div class="stats" id="stats"></div>
+      <div id="planBox" style="background:var(--soft);border-radius:14px;padding:12px 14px"></div>
     </section>
 
     <section class="card stack">
@@ -102,6 +103,12 @@ async function loadProfile(){
   $('pSub').textContent = '@' + me.nickname + ' · ' + me.username;
   $('fName').value = me.name; $('fNick').value = me.nickname;
   $('termsVer').textContent = me.terms_version;
+  const t = me.today, lim = (used, limit) => limit ? `${used} / ${limit}회` : `${used}회 (제한 없음)`;
+  $('planBox').replaceChildren(...[
+    el('div', {class: 'row'}, el('b', {}, me.plan === 'plus' ? 'RUTI Plus 이용 중' : '무료 이용 중'),
+      me.plus_until ? el('span', {class: 'muted', style: 'flex:0 0 auto'}, me.plus_until.slice(0, 10) + '까지') : null),
+    el('div', {class: 'muted', style: 'margin-top:4px'}, `오늘 상담 ${lim(t.chat_used, t.chat_limit)} · 사진 분석 ${lim(t.scan_used, t.scan_limit)}`),
+    me.plan === 'plus' ? null : el('div', {class: 'muted', style: 'margin-top:4px'}, 'RUTI Plus는 앱 출시와 함께 App Store·Google Play에서 구독할 수 있어요.')].filter(Boolean));
   $('stats').replaceChildren(
     el('a', {href: '/scan'}, el('b', {}, history.scans.length), '분석'),
     el('a', {href: '/scan'}, el('b', {}, vanity.items.length), '화장대'),
