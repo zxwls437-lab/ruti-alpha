@@ -4,6 +4,7 @@ os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["RUTI_PBKDF2_ITERATIONS"] = "1000"
 os.environ.pop("OPENAI_API_KEY", None)
 os.environ["RUTI_LLM_COOLDOWN_SECONDS"] = "0"
+os.environ["RUTI_SIGNUP_RATE_PER_HOUR"] = "1000"
 
 import pytest
 from fastapi.testclient import TestClient

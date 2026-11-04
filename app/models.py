@@ -181,3 +181,41 @@ class ProductIngredientList(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Review(Base):
+    """사용 후기. 제품은 브랜드+제품명 정규화 키(name_key)로 묶는다 (제품별 전성분과 같은 방식)."""
+    __tablename__ = "reviews"
+    __table_args__ = (UniqueConstraint("user_id", "name_key"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    brand: Mapped[str] = mapped_column(String(150), default="")
+    product_name: Mapped[str] = mapped_column(String(200))
+    name_key: Mapped[str] = mapped_column(String(400), index=True)
+    rating: Mapped[int] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    felt_moisture: Mapped[bool] = mapped_column(Boolean, default=False)    # 보습이 만족스러웠어요
+    felt_irritation: Mapped[bool] = mapped_column(Boolean, default=False)  # 자극을 느꼈어요
+    would_rebuy: Mapped[bool] = mapped_column(Boolean, default=False)      # 다시 살 거예요
+    sponsored: Mapped[bool] = mapped_column(Boolean, default=False)        # 협찬·체험단 (광고 포함)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)         # 이 제품을 사진 분석한 기록이 있음
+    medical_claim: Mapped[bool] = mapped_column(Boolean, default=False)    # 의약품식 표현 (통계 제외)
+    skin_tags: Mapped[str] = mapped_column(String(200), default="")        # 작성 당시 피부 정보 "건성,민감성"
+    show_skin: Mapped[bool] = mapped_column(Boolean, default=True)
+    helpful_count: Mapped[int] = mapped_column(Integer, default=0)
+    report_count: Mapped[int] = mapped_column(Integer, default=0)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ReviewVote(Base):
+    """도움돼요·신고 (1인 1회)."""
+    __tablename__ = "review_votes"
+    __table_args__ = (UniqueConstraint("user_id", "review_id", "kind"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    review_id: Mapped[int] = mapped_column(ForeignKey("reviews.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))  # helpful | report
+    reason: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

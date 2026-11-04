@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import account, ai, retrieval, scan
+from . import account, ai, retrieval, reviews, scan
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
@@ -54,6 +54,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="RUTI API", version="0.4.0", lifespan=lifespan)
 app.include_router(scan.router)
 app.include_router(account.router)
+app.include_router(reviews.router)
 
 
 @app.middleware("http")
