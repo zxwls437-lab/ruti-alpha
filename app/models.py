@@ -17,7 +17,20 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(50), default="")          # RUTI가 불러주는 이름 (다른 사람에게 안 보임)
+    nickname: Mapped[str] = mapped_column(String(30), default="", index=True)  # 커뮤니티에서 보이는 이름
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Consent(Base):
+    """동의 기록 (추가만 하는 이력). 종류별 가장 최근 기록이 현재 상태다."""
+    __tablename__ = "consents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(30))       # age14 | terms | privacy | sensitive | marketing
+    agreed: Mapped[bool] = mapped_column(Boolean)
+    version: Mapped[str] = mapped_column(String(30))    # 동의한 약관 버전
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

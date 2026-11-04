@@ -253,7 +253,9 @@ async function loadHistory(){
   if (!scans.length) $('history').append(el('p', {class: 'muted'}, '아직 분석한 제품이 없어요.'));
 }
 async function start(){
-  try { await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  let me;
+  try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
   loadHistory();
 }

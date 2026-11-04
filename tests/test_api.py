@@ -1,7 +1,7 @@
 import httpx
 
 from app import ai
-from tests.conftest import make_admin, signup
+from tests.conftest import make_admin, signup, signup_body
 
 PRODUCT = {
     "name": "테스트 수분 크림", "brand": "테스트브랜드", "category": "크림",
@@ -34,18 +34,19 @@ def test_auth_required(client):
 
 def test_signup_login_logout(client):
     signup(client, "alice")
-    assert client.post("/auth/signup", json={"username": "alice", "password": "password123"}).status_code == 409
+    assert client.post("/auth/signup", json=signup_body("alice")).status_code == 409
     assert client.post("/auth/login", json={"username": "alice", "password": "nope-nope"}).status_code == 401
     token = client.post("/auth/login", json={"username": "ALICE", "password": "password123"}).json()["token"]
     h = {"Authorization": f"Bearer {token}"}
-    assert client.get("/auth/me", headers=h).json() == {"username": "alice", "is_admin": False}
+    me = client.get("/auth/me", headers=h).json()
+    assert me["username"] == "alice" and me["name"] == "테스터" and me["is_admin"] is False and me["needs_consent"] == []
     assert client.post("/auth/logout", headers=h).status_code == 200
     assert client.get("/auth/me", headers=h).status_code == 401
 
 
 def test_signup_validation(client):
-    assert client.post("/auth/signup", json={"username": "a", "password": "password123"}).status_code == 422
-    assert client.post("/auth/signup", json={"username": "bob", "password": "short"}).status_code == 422
+    assert client.post("/auth/signup", json=signup_body("a")).status_code == 422
+    assert client.post("/auth/signup", json=signup_body("bob", "short")).status_code == 422
 
 
 def test_login_rate_limit(client):

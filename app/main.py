@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import ai, retrieval, scan
+from . import account, ai, retrieval, scan
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
@@ -53,6 +53,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="RUTI API", version="0.4.0", lifespan=lifespan)
 app.include_router(scan.router)
+app.include_router(account.router)
 
 
 @app.middleware("http")
@@ -77,6 +78,22 @@ def client_ip(request: Request) -> str:
 class SignupIn(BaseModel):
     username: str
     password: str = Field(min_length=8, max_length=128)
+    name: str = Field(min_length=1, max_length=30)
+    nickname: str | None = None
+    consents: dict[str, bool] = Field(default_factory=dict, description="age14, terms, privacy, sensitive(필수), marketing(선택)")
+
+    @field_validator("name")
+    @classmethod
+    def check_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("이름을 입력해 주세요.")
+        return v
+
+    @field_validator("nickname")
+    @classmethod
+    def check_nick(cls, v):
+        return account.check_nickname(v) if v else None
 
     @field_validator("username")
     @classmethod
@@ -212,12 +229,18 @@ def signup(payload: SignupIn, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(403, "현재 회원가입이 닫혀 있습니다.")
     if not limiter.hit(f"signup:{client_ip(request)}", env_int("RUTI_SIGNUP_RATE_PER_HOUR", 10), 3600):
         raise HTTPException(429, "잠시 후 다시 시도해 주세요.")
+    account.validate_signup_consents(payload.consents)
     if db.scalar(select(User).where(User.username == payload.username)):
         raise HTTPException(409, "이미 사용 중인 아이디입니다.")
-    user = User(username=payload.username, password_hash=hash_password(payload.password))
+    if payload.nickname and account.nickname_taken(db, payload.nickname):
+        raise HTTPException(409, "이미 사용 중인 닉네임이에요.")
+    user = User(username=payload.username, password_hash=hash_password(payload.password), name=payload.name,
+                nickname=payload.nickname or account.generate_nickname(db))
     db.add(user)
+    db.flush()
+    account.record_consents(db, user, {k: payload.consents.get(k, False) for k in account.CONSENT_KINDS})
     db.commit()
-    return {"token": create_session(db, user), "user": {"username": user.username, "is_admin": user.is_admin}}
+    return {"token": create_session(db, user), "user": account.user_public(db, user)}
 
 
 @app.post("/auth/login", tags=["인증"])
@@ -228,7 +251,7 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.username == username))
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
-    return {"token": create_session(db, user), "user": {"username": user.username, "is_admin": user.is_admin}}
+    return {"token": create_session(db, user), "user": account.user_public(db, user)}
 
 
 @app.post("/auth/logout", tags=["인증"])
@@ -238,8 +261,8 @@ def logout(creds: HTTPAuthorizationCredentials | None = Depends(bearer), _user: 
 
 
 @app.get("/auth/me", tags=["인증"])
-def me(user: User = Depends(current_user)):
-    return {"username": user.username, "is_admin": user.is_admin}
+def me(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return account.user_public(db, user)
 
 
 # ---------- 사용자 기억 ----------
@@ -252,6 +275,8 @@ def list_memories(user: User = Depends(current_user), db: Session = Depends(get_
 
 @app.post("/memory", status_code=201, tags=["사용자 기억"])
 def create_memory(payload: MemoryIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not account.has_sensitive_consent(db, user):
+        raise HTTPException(403, "피부 정보를 저장하려면 '피부 상태 등 민감정보 처리'에 동의해 주세요.")
     count = db.scalar(select(func.count()).select_from(Memory).where(Memory.user_id == user.id))
     if count >= env_int("RUTI_MAX_MEMORIES", 50):
         raise HTTPException(400, "저장할 수 있는 기억 개수를 초과했습니다. 오래된 기억을 삭제해 주세요.")

@@ -107,6 +107,7 @@ async function loadUsage(){
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  if (me.needs_consent && me.needs_consent.length && !me.is_admin) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
   $('app').classList.remove('hidden'); load(); loadUsage();

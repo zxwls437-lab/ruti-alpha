@@ -31,8 +31,15 @@ def client():
         yield c
 
 
+ALL_CONSENTS = {"age14": True, "terms": True, "privacy": True, "sensitive": True, "marketing": False}
+
+
+def signup_body(username="testuser1", password="password123", **extra):
+    return {"username": username, "password": password, "name": "테스터", "consents": dict(ALL_CONSENTS), **extra}
+
+
 def signup(client, username="testuser1", password="password123"):
-    r = client.post("/auth/signup", json={"username": username, "password": password})
+    r = client.post("/auth/signup", json=signup_body(username, password))
     assert r.status_code == 201, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
