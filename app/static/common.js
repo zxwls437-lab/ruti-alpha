@@ -315,15 +315,32 @@ RUTI.skinType = {
   },
   // 자가 테스트 8문항: 이마·코(T존)와 볼을 따로 보고(유분 +, 건조 -), 자극 반응을 따로 본다.
   // 피부과 설문들이 보는 기준(부위별 유분·당김·각질·모공, 제품·환경 자극 반응)을 바탕으로 만든 참고용이며 의학적으로 검증된 진단 도구가 아니다.
+  // [질문, 왜 물어보나요, [[보기, 보기 설명, 점수], ...]]
   QUIZ: [
-    ['세안하고 30분 뒤, 아무것도 안 바르면 이마·코(T존)는?', [['당기고 건조해요', {t: -2}], ['편안해요', {t: 0}], ['살짝 번들거려요', {t: 1}], ['많이 번들거려요', {t: 2}]]],
-    ['같은 때, 볼은?', [['당기고 건조해요', {c: -2}], ['살짝 당겨요', {c: -1}], ['편안해요', {c: 0}], ['번들거려요', {c: 2}]]],
-    ['오후가 되면 이마·코(T존)는?', [['건조하거나 각질이 보여요', {t: -2}], ['아침과 비슷해요', {t: 0}], ['조금 번들거려요', {t: 1}], ['기름종이가 필요해요', {t: 2}]]],
-    ['오후가 되면 볼은?', [['건조하거나 각질이 보여요', {c: -2}], ['아침과 비슷해요', {c: 0}], ['조금 번들거려요', {c: 1}], ['많이 번들거려요', {c: 2}]]],
-    ['모공은 어떤가요?', [['거의 안 보여요', {t: -1, c: -1}], ['코 주변만 보여요', {t: 1}], ['볼까지 넓어 보여요', {t: 1, c: 2}]]],
-    ['얼굴이 당기거나 각질이 일어나는 일이?', [['자주 있어요', {c: -2, t: -1}], ['겨울에만 있어요', {c: -1}], ['거의 없어요', {}]]],
-    ['새 화장품을 쓰면 따갑거나 붉어지는 일이?', [['자주 있어요', {s: 2}], ['가끔 있어요', {s: 1}], ['거의 없어요', {s: 0}]]],
-    ['날씨·온도가 바뀌거나 햇빛을 받으면 쉽게 붉어지거나 가려운가요?', [['자주 그래요', {s: 2}], ['가끔 그래요', {s: 1}], ['거의 없어요', {s: 0}]]],
+    ['세안하고 30분쯤 지났어요. 아무것도 안 바른 이마와 코는 어떤가요?', '이마·코(T존)는 피지선이 가장 많은 곳이라, 여기 느낌으로 유분을 먼저 봐요.',
+      [['당기고 뻣뻣해요', '웃을 때 피부가 땅기는 느낌', {t: -2}], ['촉촉하고 편해요', '특별한 느낌이 없어요', {t: 0}],
+       ['살짝 윤기가 돌아요', '손등으로 만지면 미끈해요', {t: 1}], ['기름이 묻어나요', '휴지를 대면 기름 자국이 남아요', {t: 2}]]],
+    ['같은 때, 볼은 어떤가요?', '볼은 피지선이 적어서 건조함이 먼저 나타나요. T존과 느낌이 다르면 복합성일 수 있어요.',
+      [['당기고 건조해요', '세안 직후처럼 땅겨요', {c: -2}], ['살짝 당겨요', '조금 지나면 괜찮아져요', {c: -1}],
+       ['편안해요', '촉촉하지도 번들거리지도 않아요', {c: 0}], ['번들거려요', '볼에도 윤기가 많이 돌아요', {c: 2}]]],
+    ['점심이 지나 오후가 되면, 이마와 코는요?', '피지는 시간이 지나며 쌓여요. 오후 상태가 원래 피부 성향을 더 잘 보여줘요.',
+      [['건조하거나 각질이 보여요', '화장이 들뜨기도 해요', {t: -2}], ['아침과 비슷해요', '크게 달라지지 않아요', {t: 0}],
+       ['조금 번들거려요', '거울을 보면 윤기가 보여요', {t: 1}], ['기름종이가 필요해요', '화장이 무너지거나 번들번들해요', {t: 2}]]],
+    ['오후의 볼은요?', 'T존과 볼을 따로 보면 지성·복합성·건성을 더 정확하게 나눌 수 있어요.',
+      [['건조하거나 각질이 보여요', '당김이 계속돼요', {c: -2}], ['아침과 비슷해요', '크게 달라지지 않아요', {c: 0}],
+       ['조금 번들거려요', '윤기가 살짝 돌아요', {c: 1}], ['많이 번들거려요', 'T존만큼 번들거려요', {c: 2}]]],
+    ['거울 가까이 보면, 모공은 어떤가요?', '피지가 많이 나올수록 모공이 넓어 보이기 쉬워요.',
+      [['거의 안 보여요', '피부결이 매끈해 보여요', {t: -1, c: -1}], ['코 주변에만 보여요', '볼은 매끈해요', {t: 1}],
+       ['볼까지 넓게 보여요', '얼굴 전체에 모공이 보여요', {t: 1, c: 2}]]],
+    ['얼굴이 당기거나 하얗게 각질이 일어나는 일이 있나요?', '수분이 부족하면 당김과 각질로 먼저 신호가 와요.',
+      [['자주 있어요', '계절과 상관없이 자주', {c: -2, t: -1}], ['겨울·환절기에만', '날씨가 건조할 때만', {c: -1}],
+       ['거의 없어요', '당김이나 각질이 드물어요', {}]]],
+    ['새 화장품을 처음 바르면 어떤가요?', '피부 보호막이 약하면 새 성분에 먼저 반응해요.',
+      [['따갑거나 붉어질 때가 많아요', '바르자마자 화끈하기도 해요', {s: 2}], ['가끔 그래요', '어떤 제품은 그래요', {s: 1}],
+       ['거의 괜찮아요', '새 제품도 대부분 편해요', {s: 0}]]],
+    ['찬 바람, 더운 곳, 햇빛에 나가면 얼굴이 쉽게 붉어지거나 가렵나요?', '환경 변화에 쉽게 반응하는지도 예민함을 보는 기준이에요.',
+      [['자주 그래요', '금방 붉어지거나 가려워요', {s: 2}], ['가끔 그래요', '심할 때만 그래요', {s: 1}],
+       ['거의 없어요', '날씨가 바뀌어도 편해요', {s: 0}]]],
   ],
   // 점수 → 결과 (테스트에서 쓰기 쉽게 따로 둠)
   score(answers){
@@ -336,29 +353,43 @@ RUTI.skinType = {
     const concerns = C === 'dry' || T === 'dry' ? ['건조함이 고민이에요'] : [];
     if (sens >= 3) concerns.push('붉어짐이 고민이에요');
     const word = {oily: '번들거리는 편', dry: '건조한 편', normal: '편안한 편'};
-    return {types, concerns, detail: `이마·코: ${word[T]} · 볼: ${word[C]} · 예민함: ${sens >= 3 ? '높아요' : sens >= 1 ? '조금 있어요' : '낮아요'}`};
+    const why = {
+      '지성': '이마·코와 볼 모두 시간이 지나면 번들거리는 편이라 지성에 가까워요.',
+      '복합성': '이마·코는 번들거리는데 볼은 그렇지 않아서 복합성에 가까워요.',
+      '건성': '당김과 건조함이 자주 느껴져서 건성에 가까워요.',
+      '중성': '번들거림도 당김도 크지 않아서 중성에 가까워요.',
+    }[base] + (sens >= 3 ? ' 새 제품이나 날씨에 자주 반응해서 민감성도 함께 골랐어요.' : '');
+    return {types, concerns, why, detail: `이마·코: ${word[T]} · 볼: ${word[C]} · 예민함: ${sens >= 3 ? '높아요' : sens >= 1 ? '조금 있어요' : '낮아요'}`};
   },
   quiz(container, onDone){
     const answers = [], Q = RUTI.skinType.QUIZ, el = RUTI.el;
+    const intro = () => {
+      container.replaceChildren(el('div', {class: 'sk-intro'},
+        el('b', {}, '2분이면 내 피부 타입을 알 수 있어요'),
+        el('p', {}, '오늘 아침 세안한 뒤 느낌을 떠올리며 답해 주세요. 정답은 없고, 가장 가까운 걸 고르면 돼요.'),
+        el('p', {class: 'muted'}, '이마·코와 볼을 따로 묻는 건, 부위마다 피부가 다른 경우가 많아서예요.'),
+        el('button', {type: 'button', class: 'sheet-save', onclick: step}, '시작하기')));
+    };
     const step = () => {
       if (answers.length === Q.length) {
         const r = RUTI.skinType.score(answers), label = r.types.join(' + ');
         container.replaceChildren(el('p', {class: 'sk-result'}, '나는 ', el('b', {}, label), ' 피부에 가까워요'),
-          el('p', {class: 'muted'}, r.detail), ...r.types.map(t => RUTI.skinType.card(t)),
+          el('p', {class: 'sk-why'}, r.why), el('p', {class: 'muted'}, r.detail), ...r.types.map(t => RUTI.skinType.card(t)),
           el('p', {class: 'muted'}, '의학적 진단이 아닌 참고용 테스트예요. 피부과 설문에서 보는 기준(부위별 유분·수분, 자극 반응)을 바탕으로 만들었어요. 피부 고민이 계속되면 피부과 전문의와 상담하세요.'),
           el('button', {type: 'button', class: 'sheet-save', onclick: () => onDone(r)}, `${label}으로 고르기`),
           el('button', {type: 'button', class: 'sk-redo', onclick: () => { answers.length = 0; step(); }}, '다시 하기'));
         container.scrollIntoView({block: 'start', behavior: 'smooth'});
         return;
       }
-      const [q, opts] = Q[answers.length];
+      const [q, why, opts] = Q[answers.length];
       const bar = el('div', {class: 'sk-progress'}, el('i', {style: `width:${answers.length / Q.length * 100}%`}));
-      container.replaceChildren(el('div', {class: 'row', style: 'gap:10px'}, bar, el('span', {class: 'muted', style: 'flex:0 0 auto'}, `${answers.length + 1} / ${Q.length}`)),
-        el('p', {class: 'sk-q'}, q),
-        ...opts.map(([txt, v]) => el('button', {type: 'button', class: 'sk-opt', onclick: () => { answers.push(v); step(); }}, txt)),
-        answers.length ? el('button', {type: 'button', class: 'sk-redo', onclick: () => { answers.pop(); step(); }}, '‹ 이전 질문') : null);
+      container.replaceChildren(...[el('div', {class: 'row', style: 'gap:10px'}, bar, el('span', {class: 'muted', style: 'flex:0 0 auto'}, `${answers.length + 1} / ${Q.length}`)),
+        el('p', {class: 'sk-q'}, q), el('p', {class: 'sk-why'}, '왜 물어보나요? ' + why),
+        ...opts.map(([txt, sub, v]) => el('button', {type: 'button', class: 'sk-opt', onclick: () => { answers.push(v); step(); }},
+          el('span', {class: 'sk-opt-main'}, txt), el('span', {class: 'sk-opt-sub'}, sub))),
+        answers.length ? el('button', {type: 'button', class: 'sk-redo', onclick: () => { answers.pop(); step(); }}, '‹ 이전 질문') : null].filter(Boolean));
       container.scrollIntoView({block: 'nearest', behavior: 'smooth'});
     };
-    step();
+    intro();
   },
 };
