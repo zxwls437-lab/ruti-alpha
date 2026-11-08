@@ -79,3 +79,16 @@
 - 관리자 아이디 `rutiadmin` (비밀번호는 대표에게 전달, 첫 로그인 후 변경 권장)
 - 남은 설정 (Render 화면 → ruti → Environment): `OPENAI_API_KEY`, `DATA_GO_KR_SERVICE_KEY`, `RUTI_OPERATOR_NAME`, `RUTI_CONTACT_EMAIL`, `RUTI_PRIVACY_OFFICER`
 - 성분 사전은 비어 있음 → 관리자 화면 '식약처에서 바로 받기' 또는 PC에서 export 파일 올리기
+
+
+## 10. 2026-11-08 오후 추가 작업
+- AI 상담: 이미 들은 정보 재질문 금지, 질문은 꼭 필요할 때 1개, 이름으로 부르기, 대화 속 피부 정보 자동 저장(민감정보 동의 시)
+- 피부 정보: 버튼으로 고르기(피부 타입 — 민감성만 중복 가능, 잘 안 맞는 성분 6종, 고민 14종, 임신·수유), 타입·성분별 그림 설명,
+  피부 타입 자가 테스트 8문항(의학적 진단 아님 표시). 성분 묶음 인식: 향료·알코올·각질 제거·레티놀·파라벤·에센셜 오일 (`scan.SENSITIVITY_GROUPS`, `group_of`)
+- 하단 탭: 홈·분석·루틴·커뮤니티·상담 / 내 정보는 오른쪽 위 프로필 버튼. `/`=홈, 개발 현황은 `/dev`
+- 루틴(`app/routine.py`, `/routine` 화면, API `/routine/today`): 단계·아침저녁 자동 추정 + 수정, 오늘 체크, 피부 컨디션 기록(민감정보),
+  조합 경고, 규칙 기반 추천 루틴(`recommend`)
+- 관리자: 회원 목록 A→Z, 접속자 수(`users.last_seen_at`, 1분 단위)
+- 처리방침 갱신(피부 컨디션·루틴·마지막 이용 시각·OpenAI로 이름 전송), 구글 플레이 데이터 보안 답안 `docs/PLAY_DATA_SAFETY.md`
+- 배포: Render 자동 배포가 안 걸려 있어 Render API로 수동 배포함 (`POST /v1/services/srv-dbo77hei0phs73e3tfk0/deploys`)
+- 보류(토론 결과): 루틴 알림(실기기 설치 후), 루틴 추천 → 제품 찾기(제품 200개 이후), 해외 서버(한국 출시 안정 후)
