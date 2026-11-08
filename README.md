@@ -169,6 +169,7 @@ data.go.kr에서 활용 승인을 받은 API로 성분 사전과 기능성 화�
 - **프롬프트 압축**: 빈 값·출처 URL 제거, 사용법·보고일 줄 제거, 긴 글 자르기, 공백 없는 JSON, 후보 제품 15개
 - **사용량·비용**: `/admin/llm-usage` 및 관리자 화면 표, `RUTI_DAILY_BUDGET_USD`로 하루 비용 상한
 - 가상 벤치마크: `python -m scripts.benchmark_llm`
+- 시연용 데모 데이터: 빈 DB에 `python -m scripts.demo_seed` (체험 계정 demo / ruti1234, [예시] 표시 데이터)
 
 **개발할 때만** 로컬 FreeLLMAPI를 연결해 무료로 테스트할 수 있습니다: `OPENAI_BASE_URL=http://localhost:3001/v1`, `OPENAI_API_KEY=<FreeLLMAPI 통합 키>`, `OPENAI_MODEL=auto`.
 FreeLLMAPI는 스스로 "개인 실험용, 실서비스 전에 유료 API로 교체"라고 안내하고, 무료 등급 약관상 여러 사용자에게 제공하는 서비스에 쓰면 안 됩니다. 실제 사용자 트래픽에는 유료 API를 쓰세요.
