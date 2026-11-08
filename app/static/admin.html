@@ -52,6 +52,19 @@
       <div class="muted" id="planMsg"></div>
     </section>
     <section class="card">
+      <h2>식약처 성분 데이터</h2>
+      <p class="muted">배포 서버에 성분 사전을 채워요. 먼저 '식약처에서 바로 받기'를 눌러 보고, 해외 서버라 막히면 PC에서 만든 파일을 올려 주세요.</p>
+      <div id="dataStatus" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <p id="dataJob" class="muted" style="min-height:1.2em"></p>
+      <div class="row" style="flex-wrap:wrap;gap:8px">
+        <button type="button" id="mfdsSync">식약처에서 바로 받기</button>
+        <label class="ghost" style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:22px;color:var(--brand);font-weight:600;cursor:pointer;flex:0 0 auto">
+          파일로 올리기<input type="file" id="ingFile" accept=".gz,.json,application/gzip,application/json" style="display:none"></label>
+        <button type="button" class="ghost" id="ingExport">현재 성분 사전 내려받기</button>
+      </div>
+      <p class="muted" style="margin-top:8px">파일 만들기 (PC, RUTI 폴더): <code>python -m scripts.mfds export</code> → <code>ruti-ingredients.json.gz</code></p>
+    </section>
+    <section class="card">
       <h2>AI 사용량 (최근 7일)</h2>
       <p class="muted">비용은 .env의 단가 기준 추정치예요. 캐시 적중은 AI를 부르지 않아 비용이 없어요.</p>
       <div id="usageTotal" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
@@ -174,13 +187,46 @@ async function loadUsage(){
       r.prompt_tokens.toLocaleString(), r.completion_tokens.toLocaleString(), won(r.cost_usd)].map(v => td(String(v))))));
   if (!items.length) $('usageTable').replaceChildren(el('tr', {}, td('아직 기록이 없어요.')));
 }
+// ---------- 식약처 성분 데이터 ----------
+let dataTimer = 0;
+async function loadData(){
+  const d = await api('/admin/data/status');
+  $('dataStatus').replaceChildren(
+    el('span', {class: 'tag'}, `성분 ${d.ingredients.toLocaleString()}개`), el('span', {class: 'tag'}, `사용제한 ${d.restricted.toLocaleString()}개`),
+    el('span', {class: 'tag'}, `기능성 제품 ${d.mfds_products.toLocaleString()}개`), el('span', {class: 'tag'}, `공유된 전성분 ${d.shared_lists.toLocaleString()}개`));
+  $('mfdsSync').disabled = !d.has_key || d.job.state === 'running';
+  $('dataJob').textContent = !d.has_key ? '서버에 DATA_GO_KR_SERVICE_KEY가 없어서 바로 받기는 쓸 수 없어요. 파일로 올려 주세요.'
+    : d.job.state === 'idle' ? '' : d.job.message;
+  clearTimeout(dataTimer);
+  if (d.job.state === 'running') dataTimer = setTimeout(loadData, 3000);
+}
+$('mfdsSync').addEventListener('click', async () => {
+  try { await api('/admin/data/mfds-sync', {method: 'POST'}); } catch (e) { $('dataJob').textContent = e.message; }
+  loadData();
+});
+$('ingFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  $('dataJob').textContent = `${file.name} 올리는 중…`;
+  try {
+    const res = await fetch('/admin/data/ingredients-import', {method: 'POST', headers: {Authorization: 'Bearer ' + RUTI.token, 'Content-Type': 'application/octet-stream'}, body: file});
+    const r = await res.json();
+    if (!res.ok) throw new Error(r.detail || '올리지 못했어요');
+    $('dataJob').textContent = `완료: 성분 ${r.imported.toLocaleString()}개 (사용제한 ${r.restricted.toLocaleString()}개)`;
+  } catch (err) { $('dataJob').textContent = err.message; }
+  e.target.value = ''; loadData();
+});
+$('ingExport').addEventListener('click', async () => {
+  const res = await fetch('/admin/data/ingredients-export', {headers: {Authorization: 'Bearer ' + RUTI.token}});
+  if (!res.ok) { $('dataJob').textContent = '내려받지 못했어요'; return; }
+  const a = el('a', {href: URL.createObjectURL(await res.blob()), download: 'ruti-ingredients.json.gz'}); document.body.append(a); a.click(); a.remove();
+});
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length && !me.is_admin) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
-  $('app').classList.remove('hidden'); load(); loadReviews(); loadCommunity(); loadUsage();
+  $('app').classList.remove('hidden'); load(); loadReviews(); loadCommunity(); loadUsage(); loadData();
 }
 $('addForm').addEventListener('submit', async e => {
   e.preventDefault(); $('addErr').textContent = '';

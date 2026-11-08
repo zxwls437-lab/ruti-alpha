@@ -20,6 +20,19 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4.1-mini
+      # 하루 AI 비용 상한 (USD). 넘으면 그날은 AI 상담·사진 분석이 멈춤
+      - key: RUTI_DAILY_BUDGET_USD
+        value: "3"
+      # 식약처 성분 데이터를 서버가 직접 받을 때 (관리자 화면 → 식약처에서 바로 받기)
+      - key: DATA_GO_KR_SERVICE_KEY
+        sync: false
+      # 개인정보 처리방침·약관에 표시 (/privacy /terms)
+      - key: RUTI_OPERATOR_NAME
+        sync: false
+      - key: RUTI_CONTACT_EMAIL
+        sync: false
+      - key: RUTI_PRIVACY_OFFICER
+        sync: false
 
 databases:
   - name: ruti-db
