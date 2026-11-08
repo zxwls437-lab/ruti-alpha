@@ -608,8 +608,12 @@ def scan_explain(scan_id: int, user: User = Depends(current_user), db: Session =
 @router.get("/history")
 def scan_history(limit: int = 20, user: User = Depends(current_user), db: Session = Depends(get_db)):
     rows = db.scalars(select(ScanResult).where(ScanResult.user_id == user.id).order_by(ScanResult.id.desc()).limit(max(1, min(limit, 100)))).all()
-    return {"scans": [{"id": r.id, "source": r.source, "product_name": r.product_name, "created_at": r.created_at.isoformat(),
-                       "summary": json.loads(r.result).get("summary", {})} for r in rows]}
+    out = []
+    for r in rows:
+        data = json.loads(r.result)
+        out.append({"id": r.id, "source": r.source, "product_name": r.product_name, "created_at": r.created_at.isoformat(),
+                    "summary": data.get("summary", {}), "level": (data.get("verdict") or {}).get("level", "")})
+    return {"scans": out}
 
 
 def _own(db: Session, user: User, scan_id: int) -> ScanResult:

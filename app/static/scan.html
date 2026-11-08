@@ -3,9 +3,19 @@
 <title>RUTI 성분 분석</title><link rel="stylesheet" href="/static/common.css">
 <style>
 .auth{max-width:380px;margin:40px auto}
-.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1}
-.drop{display:block;border:2px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;color:var(--muted)}
-.drop img{max-width:100%;max-height:260px;border-radius:10px;display:block;margin:0 auto 8px}
+.hello h1{margin:2px 0 0;font-size:24px;font-weight:600;letter-spacing:-.3px}
+.skinbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;color:var(--text);padding:12px 0;min-height:44px;font-weight:400;width:100%;text-align:left}
+.skinbar b{color:var(--brand);font-size:14px}.skinbar .tag{margin:0;background:var(--card);border:1px solid var(--line);color:var(--text);font-size:13px;padding:5px 12px}
+.hero{background:var(--soft);border-radius:28px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;background:color-mix(in srgb,var(--brand) 14%,transparent)}
+.shoot{display:flex;flex-direction:column;gap:12px;cursor:pointer;position:relative}
+.shoot-icon{width:56px;height:56px;border-radius:50%;background:var(--card);color:var(--brand);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(58,51,48,.08)}
+.shoot-title{display:block;font-size:22px;font-weight:700}.shoot-sub{display:block;color:var(--muted);font-size:14px;margin-top:4px}
+.shoot img{max-width:100%;max-height:260px;border-radius:14px;display:block}
+.linkish{background:none;color:var(--brand);padding:8px 0;min-height:44px;font-weight:600;position:relative}
+.fine{font-size:12px;color:var(--muted);margin:4px 0 0;position:relative}
+.hist{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:none;color:var(--text);border-radius:0;border-bottom:1px solid var(--line);padding:12px 0;font-weight:400;text-align:left}
+.hist-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}
 .chip{padding:6px 10px;border-radius:20px;font-size:13px;font-weight:600;background:var(--soft);color:var(--brand)}
 .chip.red{background:#FBE7E3;color:#A44A3F}.chip.orange{background:#FCF1DE;color:#84601F}.chip.gray{background:var(--bg);color:var(--muted)}
@@ -17,7 +27,6 @@
 .t{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600}
 .t.red{background:#FBE7E3;color:#A44A3F}.t.orange{background:#FCF1DE;color:#84601F}.t.green{background:var(--soft);color:var(--brand)}.t.gray{background:var(--bg);color:var(--muted)}
 @media (prefers-color-scheme:dark){.t.red{background:#4a1d20;color:#ff9aa1}.t.orange{background:#46331a;color:#ffc874}}
-.hist{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
 .verdict{border-radius:16px;padding:16px;background:var(--soft)}
 .verdict.good{background:#EAF2EE}.verdict.check{background:#FCF1DE}.verdict.avoid{background:#FBE7E3}
 @media (prefers-color-scheme:dark){.verdict.good{background:#183a32}.verdict.check{background:#3d3218}.verdict.avoid{background:#4a1d20}}
@@ -37,23 +46,29 @@
   </form>
 
   <div id="app" class="hidden">
-    <section class="card">
-      <h2>전성분 분석</h2>
-      <p class="muted">화장품 뒷면의 전성분(또는 앞면)을 찍거나 성분을 붙여넣으면 식약처 성분 정보와 내 피부 정보로 확인해 드려요.</p>
-      <div class="tabs"><button type="button" id="tabPhoto">📷 사진</button><button type="button" id="tabText" class="ghost">⌨️ 글자 입력</button></div>
+    <div class="hello">
+      <div><span class="muted" id="helloName">안녕하세요</span><h1>오늘 피부는 어떠세요?</h1></div>
+    </div>
+    <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChipsTop" class="chip-row" style="margin:0"></span><b>수정</b></button>
+
+    <section class="hero">
       <form id="photoForm" class="stack">
-        <label class="drop" id="drop"><input type="file" id="file" accept="image/*" capture="environment" hidden>
-          <span id="dropText">여기를 눌러 화장품 사진을 찍거나 선택하세요<br><b>뒷면(전성분)</b>이 가장 정확하고, <b>앞면</b>만 찍어도 등록된 제품이면 찾아드려요<br><small>성분 목록이 화면에 꽉 차게, 가까이서 흔들리지 않게 찍어 주세요 (멀리서 찍으면 글자를 잘못 읽을 수 있어요)</small></span></label>
-        <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
-        <button id="photoBtn" disabled>분석하기</button>
+        <label class="shoot" id="drop"><input type="file" id="file" accept="image/*" capture="environment" hidden>
+          <span class="shoot-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+          <span id="dropText"><b class="shoot-title">성분표 찍기</b><span class="shoot-sub">뒷면을 가까이 찍으면 내 피부에 맞는지 알려드려요</span></span></label>
+        <div class="hidden stack" id="photoMore">
+          <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
+          <button id="photoBtn" disabled>분석하기</button>
+        </div>
       </form>
+      <button type="button" class="linkish" id="tabText">글자로 입력할게요</button>
       <form id="textForm" class="stack hidden">
-        <textarea name="text" rows="5" maxlength="10000" placeholder="예) 정제수, 글리세린, 부틸렌글라이콜, 나이아신아마이드, 향료" required></textarea>
+        <textarea name="text" rows="4" maxlength="10000" placeholder="예) 정제수, 글리세린, 나이아신아마이드, 향료" required></textarea>
         <input name="product_name" placeholder="제품 이름 (선택)" maxlength="200">
         <button>분석하기</button>
       </form>
       <div class="error" id="err"></div>
-      <p class="notice">사진은 분석 후 저장하지 않아요. 얼굴이나 개인정보가 찍히지 않게 해 주세요. 제품 이름과 전성분 목록(개인정보 아님)은 다른 사용자도 쓸 수 있게 저장돼요. 분석 결과는 참고용이며, 피부 이상이 있으면 사용을 멈추고 전문가와 상담하세요.</p>
+      <p class="fine">사진은 분석 후 바로 지워져요 · <a href="/privacy#p2">자세히</a></p>
     </section>
 
     <section class="card hidden" id="pickCard">
@@ -77,10 +92,7 @@
         <div class="explainers hidden" id="vExplain"></div>
         <p class="muted hidden" id="vLoading">RUTI가 쉬운 말로 정리하고 있어요…</p>
       </div>
-      <div class="hidden" id="skinAsk">
-        <p style="margin:12px 0 6px"><b>피부 타입을 알려주시면 내 피부에 맞는지까지 봐 드릴게요</b></p>
-        <div class="chips" id="skinChips" style="margin:0"></div>
-      </div>
+      <button type="button" class="hidden" id="skinAsk" style="width:100%;margin-top:12px">내 피부 정보 고르고 다시 보기</button>
       <p class="notice hidden" id="fromDb" style="margin:12px 0 0"></p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="ghost" id="toggleAll" type="button">전체 성분 보기</button><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
       <button type="button" id="vanityAdd" style="width:100%;margin-top:8px">내 화장대에 담기</button>
@@ -109,13 +121,13 @@
 
     <section class="card">
       <h2>내 화장대</h2>
-      <p class="muted">쓰고 있는 제품을 담아 두면 함께 쓸 때 주의할 성분 조합을 알려드려요.</p>
+      <p class="muted">함께 쓰면 주의할 조합을 알려드려요</p>
       <div id="vanityChecks" class="stack"></div>
       <div id="vanityList" style="margin-top:8px"></div>
     </section>
 
     <section class="card">
-      <h2>최근 분석</h2>
+      <h2>최근 분석한 화장품</h2>
       <div id="history"></div>
     </section>
   </div>
@@ -126,11 +138,12 @@
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let imageData = null, current = null;
 
-function setTab(photo){
-  $('photoForm').classList.toggle('hidden', !photo); $('textForm').classList.toggle('hidden', photo);
-  $('tabPhoto').className = photo ? '' : 'ghost'; $('tabText').className = photo ? 'ghost' : '';
-}
-$('tabPhoto').onclick = () => setTab(true); $('tabText').onclick = () => setTab(false);
+$('tabText').onclick = () => {
+  const open = $('textForm').classList.toggle('hidden') === false;
+  $('tabText').textContent = open ? '사진으로 할게요' : '글자로 입력할게요';
+  $('photoForm').classList.toggle('hidden', open);
+  if (open) $('textForm').text.focus();
+};
 
 // 휴대폰 사진을 최대 2000px JPEG로 줄여서 보낸다 (전송 시간·비용 절약, HEIC도 브라우저가 열 수 있으면 변환됨)
 $('file').addEventListener('change', () => {
@@ -141,8 +154,8 @@ $('file').addEventListener('change', () => {
     const c = document.createElement('canvas'); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     imageData = c.toDataURL('image/jpeg', 0.88);
-    $('dropText').replaceChildren(el('img', {src: imageData, alt: '선택한 사진'}), '다른 사진을 고르려면 다시 누르세요');
-    $('photoBtn').disabled = false; URL.revokeObjectURL(url);
+    $('dropText').replaceChildren(el('img', {src: imageData, alt: '선택한 사진'}), el('span', {class: 'shoot-sub'}, '다시 누르면 다른 사진을 골라요'));
+    $('photoMore').classList.remove('hidden'); $('photoBtn').disabled = false; URL.revokeObjectURL(url);
   };
   img.onerror = () => { $('err').textContent = '이 사진 형식은 열 수 없어요. JPG나 PNG로 다시 선택해 주세요.'; };
   img.src = url;
@@ -252,11 +265,14 @@ async function openExplainer(items, start, products){
   try { memories = (await api('/memory')).memories.map(m => m.content); } catch {}
   RUTI.explainer.open(items, {memories, products: products || [], start});
 }
-const SKIN_OPTIONS = ['건성 피부', '지성 피부', '복합성 피부', '민감성 피부', '향료에 민감해요', '여드름이 잘 나요'];
-$('skinChips').replaceChildren(...SKIN_OPTIONS.map(t => el('button', {type: 'button', class: 'ghost', style: 'padding:6px 12px', onclick: async (e) => {
-  e.target.disabled = true;
-  try { await api('/memory', {method: 'POST', body: {content: t}}); await explainCurrent(); } catch (err) { $('err').textContent = err.message; }
-}}, t)));
+$('skinAsk').addEventListener('click', () => RUTI.skin.open(async () => { await loadSkin(); await explainCurrent(); }));
+$('skinBar').addEventListener('click', () => RUTI.skin.open(async () => { await loadSkin(); if (current && current.id) explainCurrent(); }));
+async function loadSkin(){
+  try {
+    const {memories} = await api('/memory');
+    $('skinChipsTop').replaceChildren(...(memories.length ? RUTI.skin.chips(memories.slice(0, 4)) : [el('span', {class: 'muted'}, '아직 없어요')]));
+  } catch { $('skinBar').classList.add('hidden'); }
+}
 async function explainCurrent(){
   if (!current || !current.id) return;
   $('vLoading').classList.remove('hidden');
@@ -355,9 +371,10 @@ $('vanityAdd').addEventListener('click', async () => {
 
 async function loadHistory(){
   const {scans} = await api('/scan/history');
-  $('history').replaceChildren(...scans.filter(s => s.summary).map(s => el('div', {class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
-    el('span', {}, (s.product_name || '이름 없는 제품') + (s.source === 'image' ? ' 📷' : '')),
-    el('span', {class: 'muted'}, `성분 ${s.summary.total ?? 0} · 국내 금지 ${s.summary.kr_ban ?? 0} · 한도 ${s.summary.kr_limit ?? 0} · 충돌 ${s.summary.memory_conflict}`))));
+  const V = {good: ['green', '잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '맞지 않을 수 있어요']};
+  $('history').replaceChildren(...scans.filter(s => s.summary).slice(0, 6).map(s => el('button', {type: 'button', class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
+    el('span', {class: 'hist-name'}, s.product_name || '이름 없는 제품'),
+    V[s.level] ? el('span', {class: 't ' + V[s.level][0]}, V[s.level][1]) : el('span', {class: 'muted'}, `성분 ${s.summary.total ?? 0}개`))));
   if (!scans.length) $('history').append(el('p', {class: 'muted'}, '아직 분석한 제품이 없어요.'));
 }
 async function start(){
@@ -365,7 +382,9 @@ async function start(){
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
-  loadHistory(); loadVanity();
+  $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
+  loadHistory(); loadVanity(); loadSkin();
+  RUTI.skin.promptOnce(me, loadSkin);
 }
 $('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
 RUTI.bindAuth($('authForm'), start);

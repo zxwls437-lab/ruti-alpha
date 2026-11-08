@@ -25,7 +25,8 @@ const RUTI = {
   el(tag, props = {}, ...children){
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(props)) {
-      if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e[k] = v;
+      if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (k.startsWith('aria-') || k.startsWith('data-')) e.setAttribute(k, v); else e[k] = v;
     }
     for (const c of children.flat()) if (c != null) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
     return e;
@@ -154,3 +155,86 @@ window.addEventListener('beforeinstallprompt', e => {
       RUTI.el('a', {href: '/admin'}, '관리자'), RUTI.el('a', {href: '/'}, '개발 현황')), logout || null);
   }).catch(() => {});
 })();
+
+// ---------- 내 피부 정보: 버튼으로 고르기 ----------
+// 저장되는 문장은 서버의 성분 묶음 인식(scan.SENSITIVITY_GROUPS)과 맞춰 둔다.
+RUTI.skin = {
+  GROUPS: [
+    {title: '피부 타입', single: true, options: [['건성', '건성 피부'], ['지성', '지성 피부'], ['복합성', '복합성 피부'], ['중성', '중성 피부'], ['민감성', '민감성 피부']]},
+    {title: '잘 안 맞는 성분', options: [['향료', '향료에 민감해요'], ['알코올', '알코올에 민감해요'], ['각질 제거 (AHA·BHA)', '각질 제거 성분(AHA·BHA)에 민감해요'], ['레티놀', '레티놀에 민감해요']]},
+    {title: '피부 고민', options: [['건조함', '건조함이 고민이에요'], ['트러블', '트러블이 잘 나요'], ['붉어짐', '붉어짐이 고민이에요'], ['모공', '모공이 고민이에요'], ['주름', '주름이 고민이에요'], ['잡티·톤', '잡티·톤이 고민이에요']]},
+    {title: '기타', options: [['임신·수유 중', '임신·수유 중이에요']]},
+  ],
+  get all(){ return RUTI.skin.GROUPS.flatMap(g => g.options); },
+  // 저장된 문장 → 짧은 이름 (직접 적은 건 그대로)
+  label(text){ const o = RUTI.skin.all.find(([, full]) => full === text); return o ? o[0] : text; },
+  // 요약 칩 (화면에 '건성 · 향료' 처럼)
+  chips(memories){ return memories.map(m => RUTI.el('span', {class: 'tag'}, RUTI.skin.label(m.content || m))); },
+  async open(onSaved){
+    const {el, api} = RUTI;
+    let mems = [];
+    try { mems = (await api('/memory')).memories; } catch (e) { alert(e.message); return; }
+    const preset = new Set(RUTI.skin.all.map(([, full]) => full));
+    const chosen = new Set(mems.filter(m => preset.has(m.content)).map(m => m.content));
+    const custom = mems.filter(m => !preset.has(m.content));
+    const removeCustom = new Set();
+    const err = el('div', {class: 'error'});
+    const sheet = el('div', {class: 'sheet', role: 'dialog'});
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.append(el('div', {class: 'sheet-head'}, el('h2', {}, '내 피부 정보'),
+      el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: () => close()}, '×')),
+      el('p', {class: 'muted'}, '고르면 성분 분석과 상담이 내 피부에 맞춰져요.'));
+    let groups = [];
+    groups = RUTI.skin.GROUPS.map(g => {
+      const row = el('div', {class: 'chip-row'});
+      const draw = () => row.replaceChildren(...g.options.map(([short, full]) => {
+        const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => {
+          if (chosen.has(full)) chosen.delete(full);
+          else { if (g.single) g.options.forEach(([, f]) => chosen.delete(f)); chosen.add(full); }
+          groups.forEach(fn => fn());
+        }}, short);
+        b.setAttribute('aria-pressed', String(chosen.has(full)));
+        return b;
+      }));
+      draw();
+      sheet.append(el('h3', {}, g.title), row);
+      return draw;
+    });
+    // 직접 적은 정보
+    const customList = el('div', {class: 'chip-row'});
+    const drawCustom = () => customList.replaceChildren(...custom.filter(m => !removeCustom.has(m.id)).map(m =>
+      el('span', {class: 'tag'}, m.content, el('button', {type: 'button', class: 'tag-x', 'aria-label': m.content + ' 지우기', onclick: () => { removeCustom.add(m.id); drawCustom(); }}, '×'))));
+    drawCustom();
+    const input = el('input', {placeholder: '직접 적기 (예: 시카 성분이 잘 맞아요)', maxLength: 100});
+    const added = [];
+    const addBtn = el('button', {type: 'button', class: 'ghost', onclick: () => {
+      const t = input.value.trim(); if (!t) return;
+      added.push(t); custom.push({id: 'new' + added.length, content: t}); input.value = ''; drawCustom();
+    }}, '추가');
+    sheet.append(el('h3', {}, '직접 적기'), customList, el('div', {class: 'row'}, input, addBtn), err);
+    const save = el('button', {type: 'button', class: 'sheet-save', onclick: async () => {
+      save.disabled = true; err.textContent = '';
+      try {
+        for (const m of mems) if ((preset.has(m.content) && !chosen.has(m.content)) || removeCustom.has(m.id)) await api('/memory/' + m.id, {method: 'DELETE'});
+        const have = new Set(mems.map(m => m.content));
+        for (const t of chosen) if (!have.has(t)) await api('/memory', {method: 'POST', body: {content: t}});
+        for (const [i, t] of added.entries()) if (!removeCustom.has('new' + (i + 1))) await api('/memory', {method: 'POST', body: {content: t}});
+        close(); if (onSaved) onSaved();
+      } catch (e) { err.textContent = e.message; save.disabled = false; }
+    }}, '저장');
+    sheet.append(save);
+    const overlay = el('div', {class: 'sheet-overlay', onclick: e => { if (e.target === overlay) close(); }}, sheet);
+    function close(){ overlay.remove(); document.body.style.overflow = ''; }
+    document.body.append(overlay); document.body.style.overflow = 'hidden';
+  },
+  // 처음 로그인했는데 피부 정보가 없으면 한 번 물어본다
+  async promptOnce(user, onSaved){
+    try {
+      const k = 'ruti_skin_asked_' + user.id;
+      if (localStorage.getItem(k)) return;
+      const {memories} = await RUTI.api('/memory');
+      localStorage.setItem(k, '1');
+      if (!memories.length) RUTI.skin.open(onSaved);
+    } catch {}
+  },
+};

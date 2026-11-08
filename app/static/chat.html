@@ -2,16 +2,25 @@
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#4F7D6E"><link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="RUTI">
 <title>RUTI 상담</title><link rel="stylesheet" href="/static/common.css">
 <style>
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
-@media(max-width:760px){.layout{grid-template-columns:1fr}}
-#log{height:min(60vh,560px);overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px}
-.msg{max-width:85%;padding:10px 14px;border-radius:14px;white-space:pre-wrap;line-height:1.5}
-.msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
-.msg.assistant{align-self:flex-start;background:var(--soft);border-bottom-left-radius:4px}
+.chatwrap{display:flex;flex-direction:column;gap:8px;height:calc(100dvh - 150px);min-height:420px}
+body.in-app .chatwrap{height:calc(100dvh - 90px)}
+.chathead{display:flex;align-items:center;gap:8px}.chathead .skinbar{flex:1;min-width:0}
+.skinbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;color:var(--text);padding:6px 0;min-height:44px;font-weight:400;text-align:left}
+.skinbar b{color:var(--brand);font-size:14px}.skinbar .tag{margin:0;background:var(--card);border:1px solid var(--line);color:var(--text);font-size:13px;padding:4px 10px}
+button.small{min-height:36px;padding:4px 12px;font-size:13px}
+#log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px}
+.msg{max-width:85%;padding:11px 15px;border-radius:18px;white-space:pre-wrap;line-height:1.6}
+.msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:6px}
+.msg.assistant{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
 .msg.warn{background:var(--warn-bg)}
-.prod{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px}
-.mem{display:flex;justify-content:space-between;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
-.mem button{padding:4px 12px;font-size:12px;min-height:32px}
+.saved{align-self:flex-start;font-size:12px;color:var(--brand);background:var(--soft);padding:5px 12px;border-radius:14px}
+.prod{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px}
+.suggest{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.suggest:empty{display:none}
+.suggest button{flex-shrink:0;min-height:36px;padding:0 14px;font-size:13px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:500}
+.askbar{display:flex;gap:8px;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:6px 6px 6px 14px}
+.askbar textarea{border:0;padding:8px 0;resize:none;max-height:120px;background:transparent}
+.askbar textarea:focus{outline:none}
+.askbar button{flex:0 0 auto}
 .auth{max-width:380px;margin:40px auto}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
@@ -25,22 +34,18 @@
     <div class="error"></div>
   </form>
 
-  <div class="layout hidden" id="app">
-    <section class="card">
-      <div class="row" style="margin-bottom:8px"><h2 style="margin:0">상담</h2><button class="ghost" id="clear">대화 지우기</button></div>
-      <div id="log"></div>
-      <form id="ask" class="row" style="margin-top:12px">
-        <textarea name="message" rows="2" maxlength="2000" placeholder="피부 고민을 적어 주세요 (Enter 전송, Shift+Enter 줄바꿈)" required></textarea>
-        <button type="submit">보내기</button>
-      </form>
-      <div class="error" id="askErr"></div>
-    </section>
-    <aside class="card">
-      <h2>내 피부 정보</h2>
-      <p class="muted">상담할 때 참고해요. 예: 건성, 향료 민감, 가벼운 제형 선호</p>
-      <form id="memForm" class="row"><input name="content" maxlength="2000" placeholder="추가할 정보" required><button>추가</button></form>
-      <div id="mems"></div>
-    </aside>
+  <div class="chatwrap hidden" id="app">
+    <div class="chathead">
+      <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChips" class="chip-row" style="margin:0"></span><b>수정</b></button>
+      <button class="ghost small" id="clear" type="button">대화 지우기</button>
+    </div>
+    <div id="log" aria-live="polite"></div>
+    <div class="suggest" id="suggest"></div>
+    <form id="ask" class="askbar">
+      <textarea name="message" rows="1" maxlength="2000" placeholder="피부 고민을 물어보세요" required></textarea>
+      <button type="submit" aria-label="보내기">보내기</button>
+    </form>
+    <div class="error" id="askErr"></div>
   </div>
 </main>
 <script src="/static/common.js"></script>
@@ -63,21 +68,26 @@ function addMsg(role, text, products = [], warn = false){
 async function loadHistory(){
   const {messages} = await api('/conversation/history');
   $('log').replaceChildren();
-  if (!messages.length) addMsg('assistant', '안녕하세요, RUTI예요. 피부 타입과 고민을 알려주시면 함께 살펴볼게요.');
+  if (!messages.length) addMsg('assistant', '안녕하세요, RUTI예요. 피부 고민을 편하게 물어보세요.');
+  showSuggest(!messages.length);
   messages.forEach(m => addMsg(m.role, m.content, m.products));
 }
 async function loadMems(){
-  const {memories} = await api('/memory');
-  $('mems').replaceChildren(...memories.map(m => el('div', {class: 'mem'}, el('span', {}, m.content),
-    el('button', {class: 'ghost', onclick: async () => { await api('/memory/' + m.id, {method: 'DELETE'}); loadMems(); }}, '삭제'))));
-  if (!memories.length) $('mems').append(el('p', {class: 'muted'}, '아직 저장된 정보가 없어요.'));
+  try {
+    const {memories} = await api('/memory');
+    $('skinChips').replaceChildren(...(memories.length ? RUTI.skin.chips(memories.slice(0, 4)) : [el('span', {class: 'muted'}, '골라 주세요')]));
+  } catch { $('skinBar').classList.add('hidden'); }
 }
+$('skinBar').addEventListener('click', () => RUTI.skin.open(loadMems));
+const SUGGEST = ['요즘 피부가 당겨요', '트러블에 좋은 성분은?', '아침 루틴 알려줘', '레티놀 처음 써도 될까요?'];
+function showSuggest(show){ $('suggest').replaceChildren(...(show ? SUGGEST.map(q => el('button', {type: 'button', onclick: () => { $('ask').message.value = q; $('ask').requestSubmit(); }}, q)) : [])); }
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
   loadHistory(); loadMems();
+  RUTI.skin.promptOnce(me, loadMems);
 }
 
 $('ask').addEventListener('submit', async e => {
@@ -89,17 +99,17 @@ $('ask').addEventListener('submit', async e => {
   const pending = addMsg('assistant', '답변을 준비하고 있어요…');
   try {
     const r = await api('/conversation', {method: 'POST', body: {message: text}});
-    pending.remove();
+    pending.remove(); showSuggest(false);
     addMsg('assistant', r.answer, r.products, r.status !== 'OK');
+    if (r.saved_memories && r.saved_memories.length) {
+      $('log').append(el('div', {class: 'saved'}, '내 피부 정보에 저장했어요: ' + r.saved_memories.map(RUTI.skin.label).join(', ')));
+      $('log').scrollTop = $('log').scrollHeight; loadMems();
+    }
   } catch (err) { pending.remove(); $('askErr').textContent = err.message; if (err.status === 401) location.reload(); }
   finally { btn.disabled = false; box.focus(); }
 });
+$('ask').message.addEventListener('input', e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px'; });
 $('ask').message.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('ask').requestSubmit(); } });
-$('memForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  try { await api('/memory', {method: 'POST', body: {content: e.target.content.value}}); e.target.reset(); loadMems(); }
-  catch (err) { alert(err.message); }
-});
 $('clear').addEventListener('click', async () => { if (confirm('대화 기록을 모두 지울까요?')) { await api('/conversation/history', {method: 'DELETE'}); loadHistory(); } });
 $('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
 // 분석 화면의 'RUTI에게 물어보기'에서 넘어온 질문 (앱에서는 상담 탭이 이미 열려 있을 수 있어 저장소 변화도 확인)

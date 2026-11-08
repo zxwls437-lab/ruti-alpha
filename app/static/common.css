@@ -36,3 +36,15 @@ body.app main{margin-top:16px;padding-bottom:calc(84px + env(safe-area-inset-bot
 @media(max-width:700px){body.app #logout{display:none}main{padding:0 14px}.card{padding:18px}}
 body.app.in-app main{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
 body.in-app .topbar{padding-top:10px}
+
+/* 아래에서 올라오는 창 (피부 정보 고르기 등) */
+.sheet-overlay{position:fixed;inset:0;z-index:15;background:rgba(40,32,28,.42);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:480px;max-height:92vh;overflow-y:auto;background:var(--card);border-radius:24px 24px 0 0;padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
+.sheet-head{display:flex;align-items:center;justify-content:space-between}.sheet-head h2{margin:0}
+.sheet-x{background:transparent;color:var(--muted);font-size:24px;width:44px;height:44px;padding:0}
+.sheet h3{font-size:14px;color:var(--muted);margin:16px 0 8px;font-weight:600}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.chip-toggle{min-height:40px;padding:0 16px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--text);font-weight:500}
+.chip-toggle[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+.tag-x{background:none;color:inherit;min-height:0;padding:0 0 0 6px;font-size:14px}
+.sheet-save{width:100%;margin-top:16px;min-height:50px;font-size:16px}
