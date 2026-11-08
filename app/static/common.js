@@ -108,9 +108,40 @@ if ('serviceWorker' in navigator) {
 }
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
-  const nav = document.querySelector('nav');
+  const nav = document.querySelector('.topbar') || document.querySelector('nav');
   if (!nav || document.getElementById('installApp')) return;
   const btn = RUTI.el('button', {id: 'installApp', type: 'button', style: 'padding:6px 12px;font-size:13px;background:#fff;color:var(--brand-dark)',
     onclick: async () => { e.prompt(); await e.userChoice; btn.remove(); }}, '앱 설치');
   nav.append(btn);
 });
+
+// 앱 화면: 사용자 화면(분석·커뮤니티·상담·내 정보)의 메뉴를 휴대폰 앱처럼 하단 탭으로 바꾼다.
+// 관리자·개발 현황 링크는 관리자 계정에만 보인다.
+(function appNav(){
+  const TABS = [
+    ['/scan', '분석', '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'],
+    ['/community', '커뮤니티', '<circle cx="9" cy="9" r="3.5"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c.8-3 3.2-5 6-5s5.2 2 6 5M15 15c2.5 0 4.5 1.5 5.5 4"/>'],
+    ['/chat', '상담', '<path d="M4 5h16v11H9l-5 4z"/>'],
+    ['/mypage', '내 정보', '<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'],
+  ];
+  const nav = document.querySelector('nav');
+  if (!nav || !TABS.some(([p]) => p === location.pathname)) return;
+  const logout = nav.querySelector('#logout');
+  const top = RUTI.el('header', {class: 'topbar'}, RUTI.el('b', {}, 'RUTI'));
+  const tabs = RUTI.el('nav', {class: 'tabs'}); tabs.setAttribute('aria-label', '하단 메뉴');
+  for (const [path, label, icon] of TABS) {
+    const a = RUTI.el('a', {href: path, class: path === location.pathname ? 'on' : ''});
+    if (path === location.pathname) a.setAttribute('aria-current', 'page');
+    a.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`;
+    a.append(label);
+    tabs.append(a);
+  }
+  if (logout) top.append(logout);
+  nav.replaceWith(top);
+  document.body.append(tabs);
+  document.body.classList.add('app');
+  if (RUTI.token) RUTI.api('/auth/me').then(u => {
+    if (u && u.is_admin) top.insertBefore(RUTI.el('span', {class: 'adminlinks'},
+      RUTI.el('a', {href: '/admin'}, '관리자'), RUTI.el('a', {href: '/'}, '개발 현황')), logout || null);
+  }).catch(() => {});
+})();

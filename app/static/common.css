@@ -1,15 +1,15 @@
-:root{--bg:#f3f7f5;--card:#fff;--line:#dce8e2;--text:#182b29;--muted:#617772;--brand:#087a63;--brand-dark:#103d35;--soft:#e3f5ee;--danger:#b4232c;--warn-bg:#fff4e0;
-font-family:system-ui,'Malgun Gothic',sans-serif;color:var(--text);background:var(--bg)}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1716;--card:#17211f;--line:#2a3a37;--text:#e3eeea;--muted:#9fb3ad;--brand:#3cc7a2;--brand-dark:#0b2a24;--soft:#183a32;--danger:#ff7b84;--warn-bg:#3a2e17}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}
+:root{--bg:#FBF8F3;--card:#fff;--line:#EEE7DD;--text:#3A3330;--muted:#736A64;--brand:#4F7D6E;--brand-dark:#3F6E5F;--soft:#EAF2EE;--peach:#F6E3D6;--danger:#A44A3F;--warn-bg:#FCF1DE;
+font-family:'Noto Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:var(--text);background:var(--bg)}
+@media (prefers-color-scheme:dark){:root{--bg:#1B1816;--card:#25211E;--line:#3A3430;--text:#EFE8E1;--muted:#B3A79E;--brand:#8DBBA9;--brand-dark:#2C4A40;--soft:#273730;--peach:#3D2E25;--danger:#E8968A;--warn-bg:#3A3020}}
+*{box-sizing:border-box}body{margin:0;word-break:keep-all;overflow-wrap:anywhere;background:var(--bg);color:var(--text)}
 nav{display:flex;gap:16px;align-items:center;background:var(--brand-dark);color:#fff;padding:14px max(16px,calc((100vw - 1000px)/2))}
 nav b{letter-spacing:2px;font-size:20px;margin-right:auto}nav a{color:#cce6df;text-decoration:none;font-size:14px}nav a.on{color:#fff;font-weight:700}
 main{max-width:1000px;margin:24px auto;padding:0 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 4px 14px rgba(58,51,48,.04);padding:20px;margin-bottom:16px}
 h2{margin:0 0 12px;font-size:18px}.muted{color:var(--muted);font-size:13px}
-input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--text)}
+input,textarea,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:14px;font:inherit;font-size:16px;background:var(--card);color:var(--text)}
 textarea{resize:vertical}
-button{padding:10px 16px;border:0;border-radius:10px;background:var(--brand);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button{padding:10px 16px;min-height:44px;border:0;border-radius:22px;background:var(--brand);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 button.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}button.danger{background:var(--danger)}
 button:disabled{opacity:.5;cursor:default}
 .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.row>button{flex:0 0 auto}
@@ -20,3 +20,17 @@ a{color:var(--brand)}
 
 .check{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.5;cursor:pointer}
 .check input{width:auto;margin-top:3px;accent-color:var(--brand)}
+
+/* 앱 화면: 위쪽 머리글 + 하단 탭 (사용자 화면) */
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);
+  padding:calc(10px + env(safe-area-inset-top)) max(20px,calc((100vw - 1000px)/2)) 10px;border-bottom:1px solid var(--line)}
+.topbar b{font-size:20px;letter-spacing:3px;color:var(--brand);margin-right:auto}
+.topbar a{font-size:13px;color:var(--muted);text-decoration:none;padding:10px 4px}
+.topbar .adminlinks{display:flex;gap:8px}
+.topbar #installApp{min-height:36px;padding:6px 14px!important;background:var(--soft)!important;color:var(--brand)!important}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--card);
+  border-top:1px solid var(--line);padding:6px max(6px,calc((100vw - 640px)/2)) calc(6px + env(safe-area-inset-bottom))}
+nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;min-height:48px;color:var(--muted);font-size:11px;text-decoration:none}
+nav.tabs a.on{color:var(--brand);font-weight:700}
+body.app main{margin-top:16px;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+@media(max-width:700px){body.app #logout{display:none}main{padding:0 14px}.card{padding:18px}}
