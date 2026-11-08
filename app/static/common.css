@@ -34,3 +34,5 @@ nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:3px;padding
 nav.tabs a.on{color:var(--brand);font-weight:700}
 body.app main{margin-top:16px;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
 @media(max-width:700px){body.app #logout{display:none}main{padding:0 14px}.card{padding:18px}}
+body.app.in-app main{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+body.in-app .topbar{padding-top:10px}

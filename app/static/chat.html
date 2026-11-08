@@ -102,7 +102,12 @@ $('memForm').addEventListener('submit', async e => {
 });
 $('clear').addEventListener('click', async () => { if (confirm('대화 기록을 모두 지울까요?')) { await api('/conversation/history', {method: 'DELETE'}); loadHistory(); } });
 $('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
-try { const q = sessionStorage.getItem('ruti_prefill'); if (q) { $('ask').message.value = q; sessionStorage.removeItem('ruti_prefill'); } } catch {}
+// 분석 화면의 'RUTI에게 물어보기'에서 넘어온 질문 (앱에서는 상담 탭이 이미 열려 있을 수 있어 저장소 변화도 확인)
+function takePrefill(){ try { const q = localStorage.getItem('ruti_prefill'); if (q) { $('ask').message.value = q; localStorage.removeItem('ruti_prefill'); $('ask').message.focus(); } } catch {} }
+takePrefill();
+window.addEventListener('storage', e => { if (e.key === 'ruti_prefill' && e.newValue) takePrefill(); });
+window.addEventListener('focus', takePrefill);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) takePrefill(); });
 RUTI.bindAuth($('authForm'), start);
 start();
 </script></body></html>

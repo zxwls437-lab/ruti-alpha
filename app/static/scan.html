@@ -331,7 +331,7 @@ $('askBtn').addEventListener('click', () => {
   if (!current) return;
   const warn = current.items.filter(isWarn).map(i => i.input);
   const q = `${current.product_name || '이 제품'}의 전성분을 분석했어요. ` + (warn.length ? `주의 성분: ${warn.join(', ')}. ` : '') + '내 피부에 써도 괜찮을까요?';
-  try { sessionStorage.setItem('ruti_prefill', q); } catch {}
+  try { localStorage.setItem('ruti_prefill', q); } catch {}
   location.href = '/chat';
 });
 

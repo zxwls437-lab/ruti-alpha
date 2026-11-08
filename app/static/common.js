@@ -1,7 +1,13 @@
 // 공통: 토큰 저장, API 호출, 안전한 DOM 생성
 const RUTI = {
   get token(){ try { return localStorage.getItem('ruti_token') || ''; } catch { return ''; } },
-  set token(v){ try { v ? localStorage.setItem('ruti_token', v) : localStorage.removeItem('ruti_token'); } catch {} },
+  set token(v){
+    try { v ? localStorage.setItem('ruti_token', v) : localStorage.removeItem('ruti_token'); } catch {}
+    RUTI.native({type: 'auth'});  // 앱 안이면 다른 탭도 로그인 상태를 새로고침
+  },
+  // 안드로이드/iOS 앱(RUTI 앱의 WebView) 안에서 열렸는지
+  get inApp(){ return !!window.ReactNativeWebView || document.documentElement.classList.contains('ruti-native') || /RUTIApp\//.test(navigator.userAgent); },
+  native(msg){ try { if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(msg)); } catch {} },
   async api(path, opts = {}){
     const headers = {'Content-Type': 'application/json'};
     if (RUTI.token) headers.Authorization = 'Bearer ' + RUTI.token;
@@ -140,8 +146,9 @@ window.addEventListener('beforeinstallprompt', e => {
   }
   if (logout) top.append(logout);
   nav.replaceWith(top);
-  document.body.append(tabs);
   document.body.classList.add('app');
+  // 앱 안에서는 진짜(네이티브) 하단 탭을 쓰므로 웹 탭은 붙이지 않는다
+  if (RUTI.inApp) document.body.classList.add('in-app'); else document.body.append(tabs);
   if (RUTI.token) RUTI.api('/auth/me').then(u => {
     if (u && u.is_admin) top.insertBefore(RUTI.el('span', {class: 'adminlinks'},
       RUTI.el('a', {href: '/admin'}, '관리자'), RUTI.el('a', {href: '/'}, '개발 현황')), logout || null);

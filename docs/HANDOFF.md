@@ -62,3 +62,13 @@
 - 사용자 글(UGC): 이용약관 동의, **신고 + 사용자 차단** 필수 → 2026-11-08 차단 기능 추가 완료
 - 건강 앱 선언서는 **모든 앱이 제출**. 의료기기가 아니면 설명에 *"not a medical device and does not diagnose, treat, cure, or prevent any medical condition"* 취지의 문구 + 앱에서 전문가 상담 안내. 개인정보 처리방침은 **공개 웹 주소(PDF 불가)** 필요
 - 데이터 보안 섹션: 피부 정보(건강 관련), 사진(AI 업체로 전송), 후기·글 등 수집·공유 항목을 정확히 신고해야 함
+
+
+## 8. 2026-11-08 추가 작업
+- 판정 이유 그림 설명 애니메이션 7종 (`app/static/explain.js`, 서버는 `scan.build_explainers`)
+- 개인정보 처리방침·이용약관·계정 삭제 안내 공개 페이지 (`/privacy` `/terms` `/account-deletion`, `app/legal/`) — 초안, 운영자 정보는 환경 변수
+- 배포 준비: 관리자 화면 '식약처 성분 데이터'(서버 직접 받기 / 파일 올리기), `scripts.mfds export|import`, `docs/DEPLOY.md`
+- 관리자 화면 '제품 전성분 일괄 등록' (쇼핑몰 자동 수집은 하지 않기로 결정 — 약관·DB 저작권 위험)
+- 안드로이드·iOS 앱 `mobile/` (Expo SDK 58): 네이티브 하단 탭 + 탭마다 RUTI 화면(WebView), 카메라 권한, 뒤로가기,
+  오프라인 화면, 바깥 링크는 외부 앱, 로그인 상태 탭 간 공유, 결제용 연결 통로. 웹은 앱 안이면 웹 하단 탭을 숨김(`RUTI.inApp`)
+- 남은 것: Render 실제 배포 → `mobile/eas.json` 서버 주소 교체 → EAS 빌드 → 구글 플레이 비공개 테스트, 구독 결제(Play Billing), 실사진 정확도 테스트
