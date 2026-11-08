@@ -13,6 +13,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -153,3 +154,84 @@ async def ingredients_import(request: Request, _admin: User = Depends(require_ad
         raise HTTPException(400, str(e)) from e
     n = replace_ingredients(db, rows)
     return {"imported": n, "restricted": sum(1 for r in rows if r["restriction"])}
+
+
+# ---------- 제품 전성분 일괄 등록 (앞면 사진·제품명으로 바로 찾게) ----------
+# 붙여 넣기 형식 (제품마다):
+#   브랜드 | 제품명
+#   정제수, 글리세린, ... (여러 줄 가능)
+# 또는 한 줄로:  브랜드 | 제품명 | 정제수, 글리세린, ...
+ADMIN_CONFIRMATIONS = 5  # 관리자가 직접 확인한 목록은 사용자 1명 촬영보다 우선
+
+
+class BulkIn(BaseModel):
+    text: str = Field(min_length=1, max_length=400_000)
+    dry_run: bool = True
+
+
+def parse_bulk(text: str) -> list[dict]:
+    from .scan import split_ingredients
+    products: list[dict] = []
+    cur = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "|" in line:
+            parts = [p.strip() for p in line.split("|")]
+            brand, name = (parts[0], parts[1]) if len(parts) >= 2 else ("", parts[0])
+            cur = {"brand": brand[:150], "name": name[:200], "raw": " ".join(parts[2:])}
+            products.append(cur)
+        elif cur is not None:
+            cur["raw"] += ("," if cur["raw"] else "") + line
+    for p in products:
+        p["ingredients"] = split_ingredients(p.pop("raw"))
+    return products
+
+
+@router.post("/product-lists")
+def bulk_product_lists(payload: BulkIn, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    from .scan import index, name_key, save_ingredient_list
+    idx = index.get(db)
+    out = []
+    for p in parse_bulk(payload.text)[:500]:
+        unknown = [n for n in p["ingredients"] if idx.lookup(n)[1] == "none"]
+        problem = ("제품명이 없어요" if len(name_key("", p["name"])) < 2 else
+                   "성분이 3개보다 적어요" if len(p["ingredients"]) < 3 else
+                   "모르는 성분이 너무 많아요 (오타·줄바꿈 확인)" if len(unknown) > len(p["ingredients"]) * .5 else "")
+        item = {"brand": p["brand"], "name": p["name"], "count": len(p["ingredients"]), "unknown": unknown[:10],
+                "status": "error" if problem else ("ok" if payload.dry_run else "saved"), "message": problem}
+        if not problem and not payload.dry_run:
+            save_ingredient_list(db, admin, p["brand"], p["name"], p["ingredients"])
+            row = db.scalar(select(ProductIngredientList).where(ProductIngredientList.name_key == name_key(p["brand"], p["name"]))
+                            .order_by(ProductIngredientList.updated_at.desc()).limit(1))
+            if row and row.confirmations < ADMIN_CONFIRMATIONS:
+                row.confirmations = ADMIN_CONFIRMATIONS
+                db.commit()
+        out.append(item)
+    if not out:
+        raise HTTPException(400, "제품을 찾지 못했어요. '브랜드 | 제품명' 줄 다음에 전성분을 적어 주세요.")
+    return {"dry_run": payload.dry_run, "products": out,
+            "ok": sum(1 for i in out if i["status"] != "error"), "errors": sum(1 for i in out if i["status"] == "error")}
+
+
+@router.get("/product-lists")
+def list_product_lists(q: str = "", _admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    from .scan import name_key
+    stmt = select(ProductIngredientList).order_by(ProductIngredientList.updated_at.desc()).limit(50)
+    key = name_key("", q)
+    if key:
+        stmt = stmt.where(ProductIngredientList.name_key.contains(key))
+    rows = db.scalars(stmt).all()
+    return {"items": [{"id": r.id, "brand": r.brand, "name": r.name, "count": len(json.loads(r.ingredients)),
+                       "confirmations": r.confirmations, "updated_at": r.updated_at.isoformat()} for r in rows]}
+
+
+@router.delete("/product-lists/{list_id}")
+def delete_product_list(list_id: int, _admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    row = db.get(ProductIngredientList, list_id)
+    if not row:
+        raise HTTPException(404, "없는 제품이에요.")
+    db.delete(row)
+    db.commit()
+    return {"deleted": list_id}

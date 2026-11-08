@@ -60,3 +60,31 @@ def test_mfds_sync_needs_key_and_runs_in_background(client, monkeypatch):
     assert datasync.job["state"] == "done", datasync.job
     with SessionLocal() as db:
         assert db.query(Ingredient).filter_by(name_ko="글리세린").count() == 1
+
+
+def test_bulk_product_lists_preview_then_save(client):
+    from tests.test_scan import seed_ingredients
+    seed_ingredients()
+    admin = make_admin(client)
+    text = """라운드랩 | 독도 토너
+정제수, 글리세린, 부틸렌글라이콜,
+향료
+
+브랜드 | 성분적은제품 | 정제수
+브랜드만 |
+정제수, 글리세린, 향료"""
+    r = client.post("/admin/data/product-lists", json={"text": text, "dry_run": True}, headers=admin).json()
+    assert [p["status"] for p in r["products"]] == ["ok", "error", "error"]
+    assert r["products"][0]["count"] == 4
+    assert client.get("/admin/data/product-lists", headers=admin).json()["items"] == []  # 미리 확인은 저장 안 함
+    r = client.post("/admin/data/product-lists", json={"text": text, "dry_run": False}, headers=admin).json()
+    assert r["ok"] == 1
+    items = client.get("/admin/data/product-lists?q=독도", headers=admin).json()["items"]
+    assert len(items) == 1 and items[0]["confirmations"] == datasync.ADMIN_CONFIRMATIONS
+    # 사용자가 제품명만 알아도 등록된 전성분을 찾음
+    from app import scan
+    with SessionLocal() as db:
+        assert scan.find_ingredient_list(db, "", "독도 토너") is not None
+    assert client.delete(f"/admin/data/product-lists/{items[0]['id']}", headers=admin).status_code == 200
+    user = signup(client, "normaluser")
+    assert client.post("/admin/data/product-lists", json={"text": text}, headers=user).status_code == 403
