@@ -1,0 +1,14 @@
+/* 처리방침·약관·계정 삭제 공개 페이지 */
+body.legal main{max-width:760px;line-height:1.75;font-size:15.5px;padding-bottom:48px}
+body.legal h1{font-size:24px;margin:8px 0 4px}
+body.legal h2{font-size:18px;margin:32px 0 8px;scroll-margin-top:72px}
+body.legal ul,body.legal ol{padding-left:22px}
+body.legal li{margin:4px 0}
+body.legal table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0;display:block;overflow-x:auto}
+body.legal th,body.legal td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;min-width:90px}
+body.legal th{background:var(--soft)}
+body.legal .toc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin:16px 0}
+body.legal .toc ol{margin:0;columns:2;column-gap:24px}
+@media(max-width:520px){body.legal .toc ol{columns:1}}
+body.legal .draft{background:var(--warn-bg);border-radius:14px;padding:12px 14px;font-size:14px;margin:12px 0}
+body.legal .btnlink{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:22px;background:var(--brand);color:#fff;font-weight:700;text-decoration:none}

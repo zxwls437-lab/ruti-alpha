@@ -29,8 +29,10 @@ const RUTI = {
     ['sensitive', '[필수] 피부 상태 등 민감정보 처리에 동의해요'], ['marketing', '[선택] 새 기능·혜택 알림을 받을게요'],
   ],
   consentBoxes(kinds){
+    const DOCS = {terms: '/terms', privacy: '/privacy', sensitive: '/privacy#p2'};
     return RUTI.CONSENTS.filter(([k]) => !kinds || kinds.includes(k)).map(([k, label]) =>
-      RUTI.el('label', {class: 'check'}, RUTI.el('input', {type: 'checkbox', name: 'c_' + k}), label));
+      RUTI.el('label', {class: 'check'}, RUTI.el('input', {type: 'checkbox', name: 'c_' + k}),
+        RUTI.el('span', {}, label, DOCS[k] ? RUTI.el('a', {href: DOCS[k], target: '_blank', rel: 'noopener', style: 'margin-left:6px;font-size:13px'}, '보기') : null)));
   },
   readConsents(root){
     const out = {};

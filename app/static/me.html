@@ -84,7 +84,7 @@
       <h2>내 데이터</h2>
       <button type="button" class="ghost" id="exportBtn">내 데이터 내려받기 (JSON)</button>
       <button type="button" class="ghost" id="logoutBtn">로그아웃</button>
-      <details>
+      <details id="delete">
         <summary class="muted" style="cursor:pointer">회원 탈퇴</summary>
         <form id="deleteForm" class="stack" style="margin-top:10px">
           <p style="margin:0">탈퇴하면 피부 정보, 상담·분석 기록, 화장대, 후기, 커뮤니티 글이 모두 삭제되고 되돌릴 수 없어요.</p>
@@ -93,7 +93,7 @@
         </form>
       </details>
     </section>
-    <p class="muted" style="text-align:center">약관 버전 <span id="termsVer"></span> · RUTI는 의료 진단을 대신하지 않아요</p>
+    <p class="muted" style="text-align:center">약관 버전 <span id="termsVer"></span> · RUTI는 의료 진단을 대신하지 않아요<br><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보 처리방침</b></a> · <a href="/account-deletion">계정 삭제 안내</a></p>
   </div>
 </main>
 <script src="/static/common.js"></script>
@@ -182,6 +182,8 @@ async function start(){
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
   loadProfile(); loadMems(); loadBlocks();
+  // 계정 삭제 안내 페이지(/account-deletion)에서 들어오면 탈퇴 칸을 바로 펼친다
+  if (location.hash === '#delete') { $('delete').open = true; $('delete').scrollIntoView({block: 'center'}); }
 }
 RUTI.bindAuth($('authForm'), start);
 start();

@@ -253,3 +253,17 @@ def test_pwa_files(client):
     assert client.get("/static/offline.html").status_code == 200
     assert client.get("/static/icons/../main.py").status_code == 404
     assert 'rel="manifest"' in client.get("/scan").text
+
+
+def test_legal_pages_public_and_filled(client, monkeypatch):
+    monkeypatch.setenv("RUTI_OPERATOR_NAME", "루티 <테스트>")
+    monkeypatch.setenv("RUTI_CONTACT_EMAIL", "help@example.com")
+    for path in ("/privacy", "/terms", "/account-deletion"):
+        r = client.get(path)  # 로그인 없이 열람 가능 (구글 플레이 제출용)
+        assert r.status_code == 200 and "text/html" in r.headers["content-type"]
+        assert "{{" not in r.text and "루티 &lt;테스트&gt;" in r.text
+    assert "OpenAI" in client.get("/privacy").text and "국외 이전" in client.get("/privacy").text
+    assert "초안" in client.get("/terms").text
+    monkeypatch.setenv("RUTI_LEGAL_DRAFT", "false")
+    assert "초안" not in client.get("/terms").text
+    assert client.get("/legal/legal.css").status_code == 200
