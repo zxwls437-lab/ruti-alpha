@@ -69,6 +69,11 @@ def current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer), d
     user = db.get(User, row.user_id)
     if user is None:
         raise HTTPException(401, "사용자를 찾을 수 없습니다.")
+    # 접속자 수 집계용: 1분에 한 번만 기록 (요청마다 쓰지 않게)
+    now = utcnow()
+    if user.last_seen_at is None or (now - user.last_seen_at).total_seconds() > 60:
+        user.last_seen_at = now
+        db.commit()
     return user
 
 

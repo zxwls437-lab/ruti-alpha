@@ -23,6 +23,7 @@ class User(Base):
     plan: Mapped[str] = mapped_column(String(10), default="free")         # free | plus
     plus_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)  # 마지막 접속 (1분 단위)
 
 
 class Consent(Base):

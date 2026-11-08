@@ -299,3 +299,18 @@ def test_conversation_saves_new_skin_info_from_chat(client, monkeypatch):
 def test_clean_new_memories():
     assert ai.clean_new_memories(["  지성  피부 ", "건성", None, "가" * 50], ["건성 피부"]) == ["지성 피부"]
     assert ai.clean_new_memories("not a list", []) == []
+
+
+def test_admin_users_sorted_and_visitor_counts(client):
+    admin = make_admin(client, "mmadmin")
+    for name in ("zeta01", "Alpha01", "bravo01"):
+        signup(client, name)
+    users = client.get("/admin/users", headers=admin).json()["users"]
+    assert [u["username"] for u in users] == ["alpha01", "bravo01", "mmadmin", "zeta01"]  # 아이디 A→Z
+    assert "password_hash" not in users[0]
+    assert [u["username"] for u in client.get("/admin/users?q=bra", headers=admin).json()["users"]] == ["bravo01"]
+    v = client.get("/admin/stats/visitors", headers=admin).json()
+    # 가입하면서 로그인한 사용자는 '지금 접속 중'으로 셈
+    assert v["total_users"] == 4 and v["online_now"] >= 1 and v["today"] >= 1 and v["new_today"] == 4
+    user = signup(client, "plainuser")
+    assert client.get("/admin/users", headers=user).status_code == 403

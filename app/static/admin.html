@@ -23,6 +23,12 @@
 
   <div id="app" class="hidden">
     <section class="card">
+      <h2>회원 · 접속자</h2>
+      <div id="visitors" class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+      <div class="row" style="gap:8px"><input id="userSearch" placeholder="아이디·이름·닉네임 찾기"><button type="button" class="ghost" id="userSearchBtn">찾기</button></div>
+      <div style="overflow-x:auto;margin-top:8px"><table id="userTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
+    </section>
+    <section class="card">
       <h2>제품 검토</h2>
       <p class="muted">승인된 제품만 검색과 AI 상담에 사용돼요. 근거 자료 URL이 없으면 승인할 수 없어요.</p>
       <div class="tabs" id="tabs"></div>
@@ -259,13 +265,37 @@ async function loadLists(){
   if (!items.length) $('plList').append(el('p', {class: 'muted'}, '등록된 제품이 없어요.'));
 }
 $('plSearchBtn').addEventListener('click', loadLists);
+// ---------- 회원 · 접속자 ----------
+const ago = iso => {
+  if (!iso) return '없음';
+  const m = Math.round((Date.now() - new Date(iso + 'Z').getTime()) / 60000);
+  return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.round(m / 60)}시간 전` : `${Math.round(m / 1440)}일 전`;
+};
+async function loadVisitors(){
+  const v = await api('/admin/stats/visitors');
+  $('visitors').replaceChildren(
+    el('span', {class: 'tag', style: 'font-size:14px'}, `🟢 지금 접속 ${v.online_now}명`),
+    el('span', {class: 'tag'}, `오늘 ${v.today}명`), el('span', {class: 'tag'}, `7일 ${v.week}명`),
+    el('span', {class: 'tag'}, `전체 회원 ${v.total_users}명`), el('span', {class: 'tag'}, `오늘 가입 ${v.new_today}명`));
+}
+async function loadUsers(){
+  const {users} = await api('/admin/users?q=' + encodeURIComponent($('userSearch').value.trim()));
+  const td = (t, th) => el(th ? 'th' : 'td', {style: 'padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap'}, t);
+  $('userTable').replaceChildren(el('tr', {}, ...['아이디 (A→Z)', '이름', '닉네임', '요금제', '분석', '마지막 접속', '가입일'].map(h => td(h, true))),
+    ...users.map(u => el('tr', {}, td((u.online ? '🟢 ' : '') + u.username + (u.is_admin ? ' (관리자)' : '')), td(u.name || '-'), td(u.nickname || '-'),
+      td(u.plan === 'plus' ? 'Plus' : '무료'), td(String(u.scans)), td(ago(u.last_seen_at)), td(u.created_at.slice(0, 10)))));
+  if (!users.length) $('userTable').replaceChildren(el('tr', {}, td('찾는 회원이 없어요.')));
+}
+$('userSearchBtn').addEventListener('click', loadUsers);
+$('userSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadUsers(); });
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length && !me.is_admin) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('logout').classList.remove('hidden');
   if (!me.is_admin) { $('denied').classList.remove('hidden'); return; }
-  $('app').classList.remove('hidden'); load(); loadReviews(); loadCommunity(); loadUsage(); loadData(); loadLists();
+  $('app').classList.remove('hidden'); loadVisitors(); loadUsers(); setInterval(loadVisitors, 30000);
+  load(); loadReviews(); loadCommunity(); loadUsage(); loadData(); loadLists();
 }
 $('addForm').addEventListener('submit', async e => {
   e.preventDefault(); $('addErr').textContent = '';
