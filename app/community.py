@@ -51,6 +51,11 @@ def _product_check(db: Session, viewer: User, product_name: str, memories: list[
     return {"product_name": product_name, "found": True, "level": v["level"], "title": v["title"]}
 
 
+def _blocked(db: Session, user: User) -> set[int]:
+    from .blocks import blocked_ids  # 순환 import 방지
+    return blocked_ids(db, user)
+
+
 def _memories(db: Session, user: User) -> list[str]:
     from .account import has_sensitive_consent
     from .models import Memory
@@ -132,6 +137,8 @@ def list_posts(kind: str = "", similar: bool = False, limit: int = 20, offset: i
             raise HTTPException(400, "kind는 question/talk/video 중 하나예요.")
         stmt = stmt.where(Post.kind == kind)
     rows = list(db.scalars(stmt.limit(500)))
+    hidden_authors = _blocked(db, user)
+    rows = [p for p in rows if p.user_id not in hidden_authors]
     if similar:
         mine = set(_my_tags(db, user))
         rows = [p for p in rows if is_similar(mine, set(p.skin_tags.split(",")) - {""})]
@@ -152,7 +159,11 @@ def _visible_post(db: Session, post_id: int) -> Post:
 @router.get("/community/posts/{post_id}")
 def get_post(post_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     p = _visible_post(db, post_id)
-    comments = list(db.scalars(select(Comment).where(Comment.post_id == p.id, Comment.hidden.is_(False)).order_by(Comment.id)))
+    if p.user_id in _blocked(db, user):
+        raise HTTPException(404, "글을 찾을 수 없어요.")
+    hidden_authors = _blocked(db, user)
+    comments = [c for c in db.scalars(select(Comment).where(Comment.post_id == p.id, Comment.hidden.is_(False)).order_by(Comment.id))
+                if c.user_id not in hidden_authors]
     ids = {p.user_id} | {c.user_id for c in comments}
     authors = {u.id: u for u in db.scalars(select(User).where(User.id.in_(ids)))}
     nick = lambda uid: authors[uid].nickname if uid in authors and authors[uid].nickname else "탈퇴한 사용자"
@@ -315,3 +326,5 @@ def delete_user_content(db: Session, user_id: int) -> None:
         db.execute(delete(CommunityVote).where(CommunityVote.target == "comment", CommunityVote.target_id == c.id))
         db.delete(c)
     db.execute(delete(CommunityVote).where(CommunityVote.user_id == user_id))
+    from .blocks import delete_user_blocks
+    delete_user_blocks(db, user_id)

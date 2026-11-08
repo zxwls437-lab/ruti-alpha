@@ -278,3 +278,13 @@ class CommunityVote(Base):
     kind: Mapped[str] = mapped_column(String(10))     # helpful | report
     reason: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class UserBlock(Base):
+    """사용자 차단: 차단한 사람의 글·댓글·후기를 내 화면에서 숨긴다 (구글 플레이 UGC 정책 필수 기능)."""
+    __tablename__ = "user_blocks"
+    __table_args__ = (UniqueConstraint("user_id", "blocked_user_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    blocked_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

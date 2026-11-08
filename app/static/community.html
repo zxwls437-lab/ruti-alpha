@@ -68,7 +68,8 @@ function postCard(p){
     const input = el('input', {placeholder: '댓글을 남겨 주세요', maxLength: 1000});
     comments.replaceChildren(...d.comments.map(c => el('div', {class: 'comment'}, el('b', {}, c.author + (c.is_post_author ? ' (글쓴이)' : '')), ' ', c.body,
         c.mine ? null : el('button', {class: 'ghost', style: 'padding:0 8px;margin-left:6px;font-size:12px', onclick: async () => {
-          const reason = prompt('신고 이유'); if (reason) { await api(`/community/comments/${c.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요.'); } }}, '신고'))),
+          const reason = prompt('신고 이유'); if (reason) { await api(`/community/comments/${c.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요.'); } }}, '신고'),
+        c.mine ? null : el('button', {class: 'ghost', style: 'padding:0 8px;margin-left:4px;font-size:12px', onclick: () => RUTI.block('comment', c.id, () => { comments.classList.add('hidden'); toggleComments(); })}, '차단'))),
       el('form', {class: 'row', style: 'margin-top:8px', onsubmit: async e => { e.preventDefault(); if (!input.value.trim()) return;
         await api(`/community/posts/${p.id}/comments`, {method: 'POST', body: {body: input.value}}); comments.classList.add('hidden'); toggleComments(); }},
         input, el('button', {}, '등록')));
@@ -92,7 +93,8 @@ function postCard(p){
       p.mine ? el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
         if (confirm('글을 지울까요?')) { await api('/community/posts/' + p.id, {method: 'DELETE'}); load(); } }}, '삭제')
         : el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
-          const reason = prompt('신고 이유 (예: 광고, 욕설, 허위 정보)'); if (reason) { await api(`/community/posts/${p.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요. 검토 후 조치할게요.'); } }}, '신고')),
+          const reason = prompt('신고 이유 (예: 광고, 욕설, 허위 정보)'); if (reason) { await api(`/community/posts/${p.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요. 검토 후 조치할게요.'); } }}, '신고'),
+      p.mine ? null : el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: () => RUTI.block('post', p.id, load)}, '차단')),
     comments].filter(Boolean));
   return box;
 }

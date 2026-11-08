@@ -66,6 +66,11 @@
     </section>
 
     <section class="card stack">
+      <h2>차단한 사용자</h2>
+      <div id="blocks"></div>
+    </section>
+
+    <section class="card stack">
       <h2>비밀번호 변경</h2>
       <form id="pwForm" class="stack">
         <input name="current_password" type="password" placeholder="현재 비밀번호" autocomplete="current-password" required>
@@ -130,6 +135,12 @@ async function loadProfile(){
       el('label', {class: 'switch'}, box, el('span', {})));
   }));
 }
+async function loadBlocks(){
+  const {blocks} = await api('/blocks');
+  $('blocks').replaceChildren(...blocks.map(b => el('div', {class: 'mem'}, el('span', {}, b.nickname),
+    el('button', {class: 'ghost', style: 'padding:2px 10px;flex:0 0 auto', onclick: async () => { await api('/blocks/' + b.id, {method: 'DELETE'}); loadBlocks(); }}, '차단 해제'))));
+  if (!blocks.length) $('blocks').append(el('p', {class: 'muted', style: 'margin:0'}, '차단한 사용자가 없어요.'));
+}
 async function loadMems(){
   const {memories} = await api('/memory');
   $('mems').replaceChildren(...memories.map(m => el('div', {class: 'mem'}, el('span', {}, m.content),
@@ -170,7 +181,7 @@ async function start(){
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
-  loadProfile(); loadMems();
+  loadProfile(); loadMems(); loadBlocks();
 }
 RUTI.bindAuth($('authForm'), start);
 start();

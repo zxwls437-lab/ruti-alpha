@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from . import account, ai, community, plans, retrieval, reviews, scan, vanity
+from . import account, ai, blocks, community, plans, retrieval, reviews, scan, vanity
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
@@ -58,6 +58,7 @@ app.include_router(reviews.router)
 app.include_router(vanity.router)
 app.include_router(community.router)
 app.include_router(plans.router)
+app.include_router(blocks.router)
 
 
 @app.middleware("http")

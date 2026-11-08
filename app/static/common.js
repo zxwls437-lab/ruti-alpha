@@ -95,6 +95,10 @@ const RUTI = {
     });
     document.body.append(overlay);
   },
+  async block(target, id, after){
+    if (!confirm('이 사용자를 차단할까요? 이 사람의 글·댓글·후기가 더 이상 보이지 않아요. (내 정보에서 풀 수 있어요)')) return;
+    try { await RUTI.api('/blocks', {method: 'POST', body: {target, id}}); if (after) after(); } catch (e) { alert(e.message); }
+  },
   async logout(){ try { await RUTI.api('/auth/logout', {method: 'POST'}); } catch {} RUTI.token = ''; location.reload(); },
 };
 

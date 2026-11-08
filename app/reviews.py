@@ -176,6 +176,9 @@ def list_reviews(product: str, brand: str = "", similar: bool = False, sort: str
     stmt = select(Review).where(product_filter(brand, product), Review.hidden.is_(False))
     stmt = stmt.order_by(Review.helpful_count.desc(), Review.id.desc()) if sort == "helpful" else stmt.order_by(Review.id.desc())
     rows = db.scalars(stmt).all()
+    from .blocks import blocked_ids  # 순환 import 방지
+    hidden_authors = blocked_ids(db, user)
+    rows = [r for r in rows if r.user_id not in hidden_authors]
     if similar:
         mine = set(_my_tags(db, user))
         rows = [r for r in rows if is_similar(mine, set(r.skin_tags.split(",")) - {""})]
