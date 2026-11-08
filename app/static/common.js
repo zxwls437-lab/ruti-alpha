@@ -185,12 +185,16 @@ RUTI.skin = {
       el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: () => close()}, '×')),
       el('p', {class: 'muted'}, '고르면 성분 분석과 상담이 내 피부에 맞춰져요.'));
     let groups = [];
+    // 피부 타입: 누르면 바로 아래에 그림 설명, 모르면 1분 테스트
+    const typeBox = el('div', {});
+    const showType = short => typeBox.replaceChildren(...[RUTI.skinType.card(short)].filter(Boolean));
+    const pick = (g, full) => { if (g.single) g.options.forEach(([, f]) => chosen.delete(f)); chosen.add(full); };
     groups = RUTI.skin.GROUPS.map(g => {
       const row = el('div', {class: 'chip-row'});
       const draw = () => row.replaceChildren(...g.options.map(([short, full]) => {
         const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => {
-          if (chosen.has(full)) chosen.delete(full);
-          else { if (g.single) g.options.forEach(([, f]) => chosen.delete(f)); chosen.add(full); }
+          if (chosen.has(full)) chosen.delete(full); else pick(g, full);
+          if (g.single) showType(short);
           groups.forEach(fn => fn());
         }}, short);
         b.setAttribute('aria-pressed', String(chosen.has(full)));
@@ -198,6 +202,16 @@ RUTI.skin = {
       }));
       draw();
       sheet.append(el('h3', {}, g.title), row);
+      if (g.single) {
+        const help = el('button', {type: 'button', class: 'sk-help', onclick: () => RUTI.skinType.quiz(typeBox, (type, dry) => {
+          pick(g, g.options.find(([sh]) => sh === type)[1]);
+          if (dry) chosen.add('건조함이 고민이에요');
+          groups.forEach(fn => fn()); showType(type);
+        })}, '내 피부 타입을 모르겠어요 · 1분 테스트');
+        sheet.append(help, typeBox);
+        const cur = g.options.find(([, full]) => chosen.has(full));
+        if (cur) showType(cur[0]);
+      }
       return draw;
     });
     // 직접 적은 정보
@@ -236,5 +250,84 @@ RUTI.skin = {
       localStorage.setItem(k, '1');
       if (!memories.length) RUTI.skin.open(onSaved);
     } catch {}
+  },
+};
+
+// ---------- 피부 타입 그림 설명 (고르는 창 안에서) ----------
+RUTI.skinType = {
+  INFO: {
+    '건성': {line: '기름(피지)과 수분이 적어서 쉽게 당기고 각질이 일어나요.',
+      signs: ['세안하고 바로 얼굴이 당겨요', '각질이나 잔주름이 잘 보여요', '모공은 작은 편이에요'],
+      tip: '세라마이드·글리세린 같은 보습 성분, 크림 제형이 잘 맞아요.'},
+    '지성': {line: '기름(피지)이 많이 나와서 번들거리고 모공이 눈에 띄어요.',
+      signs: ['오후가 되면 얼굴 전체가 번들거려요', '모공이 넓어 보여요', '트러블이 잘 나요'],
+      tip: '가벼운 젤·로션 제형이 잘 맞아요. 세안을 너무 자주 하면 오히려 기름이 더 나와요.'},
+    '복합성': {line: '이마·코(T존)는 번들거리고, 볼은 건조해요.',
+      signs: ['이마와 코만 번들거려요', '볼은 당기거나 각질이 있어요', '부위마다 느낌이 달라요'],
+      tip: 'T존은 가볍게, 볼은 보습을 조금 더 해 주세요.'},
+    '중성': {line: '기름과 수분이 균형 잡혀서 크게 불편한 곳이 없어요.',
+      signs: ['세안 후에도 많이 당기지 않아요', '번들거림이 심하지 않아요', '트러블이 드물어요'],
+      tip: '지금 루틴을 유지하고, 자외선 차단만 꼭 챙겨 주세요.'},
+    '민감성': {line: '피부 보호막이 약해서 작은 자극에도 붉어지거나 따가워요.',
+      signs: ['새 제품을 쓰면 따갑거나 붉어져요', '계절이 바뀌면 예민해져요', '향이 강한 제품이 잘 안 맞아요'],
+      tip: '향료·알코올이 적은 순한 제품을 고르고, 새 제품은 팔 안쪽에 먼저 발라 보세요.'},
+  },
+  // 피부 단면 그림: 각질층(벽돌) · 표피 · 진피, 타입별 움직임
+  scene(type){
+    const W = 300, bricks = (x0, x1, gap, h, cls = '') => {
+      let out = ''; for (let x = x0; x < x1 - 8; x += 34) out += `<rect class="sk-brick ${cls}" x="${x + gap / 2}" y="${46 - h}" width="${Math.min(34, x1 - x) - gap}" height="${h}" rx="3"/>`;
+      return out;
+    };
+    const drops = (pts, cls) => pts.map(([x, y, d], i) => `<circle class="${cls}" cx="${x}" cy="${y}" r="4.2" style="animation-delay:${d ?? i * .45}s;--dx:${i % 2 ? -46 : 46}px"/>`).join('');
+    let body = '';
+    const left = '<text x="8" y="16" class="sk-lbl">', end = '</text>';
+    if (type === '건성') body = bricks(0, W, 9, 14) + `<rect class="sk-brick sk-flake" x="110" y="28" width="26" height="14" rx="3"/><rect class="sk-brick sk-flake d2" x="214" y="28" width="26" height="14" rx="3"/>`
+      + drops([[40, 70], [95, 82], [150, 68], [205, 80], [260, 72]], 'sk-water sk-rise') + `${left}수분이 빠져나가요${end}`;
+    else if (type === '지성') body = bricks(0, 130, 3, 14) + bricks(170, W, 3, 14) + `<path class="sk-pore" d="M130 46 L142 92 L158 92 L170 46 Z"/>`
+      + drops([[150, 86, 0], [150, 86, .7], [150, 86, 1.4], [150, 86, 2.1]], 'sk-oil sk-ooze') + `<ellipse class="sk-shine" cx="150" cy="30" rx="120" ry="7"/>${left}피지가 많이 나와요${end}`;
+    else if (type === '복합성') body = bricks(0, 150, 3, 14) + bricks(150, W, 9, 14) + `<path class="sk-pore" d="M66 46 L74 86 L84 86 L92 46 Z"/>`
+      + drops([[79, 82, 0], [79, 82, .8], [79, 82, 1.6]], 'sk-oil sk-ooze') + drops([[200, 72, .2], [250, 80, .9]], 'sk-water sk-rise')
+      + `<line class="sk-split" x1="150" y1="6" x2="150" y2="120"/><text x="40" y="16" class="sk-lbl">T존: 번들</text><text x="190" y="16" class="sk-lbl">볼: 건조</text>`;
+    else if (type === '민감성') body = bricks(0, W, 7, 8) + `<rect class="sk-redden" x="0" y="80" width="${W}" height="44"/>`
+      + [60, 150, 240].map((x, i) => `<polyline class="sk-spark" style="animation-delay:${i * .3}s" points="${x - 8},70 ${x - 3},64 ${x + 2},70 ${x + 7},64"/>`).join('')
+      + drops([[100, 28, 0], [190, 28, .6]], 'sk-dot sk-sink') + `${left}보호막이 얇아 자극을 잘 느껴요${end}`;
+    else body = bricks(0, W, 3, 14) + drops([[50, 72], [110, 80], [170, 70], [230, 78]], 'sk-water sk-bob') + `${left}수분이 잘 머물러요${end}`;
+    return `<svg viewBox="0 0 ${W} 124" class="sk-scene" role="img" aria-label="${type} 피부 단면 그림">
+      <rect class="sk-epi" x="0" y="46" width="${W}" height="40"/><rect class="sk-derm" x="0" y="86" width="${W}" height="38"/>
+      <rect class="sk-mortar" x="0" y="32" width="${W}" height="14"/>${body}</svg>`;
+  },
+  card(type){
+    const i = RUTI.skinType.INFO[type]; if (!i) return null;
+    const box = RUTI.el('div', {class: 'sk-card'});
+    box.innerHTML = RUTI.skinType.scene(type);
+    box.append(RUTI.el('b', {}, type + ' 피부'), RUTI.el('p', {}, i.line),
+      RUTI.el('ul', {}, ...i.signs.map(s => RUTI.el('li', {}, s))), RUTI.el('p', {class: 'sk-tip'}, '💡 ' + i.tip));
+    return box;
+  },
+  // 1분 자가 테스트: 질문 3개 → 추천 피부 타입
+  QUIZ: [
+    ['세안하고 30분 뒤, 아무것도 안 바르면?', [['얼굴이 당기고 건조해요', 'dry'], ['이마·코만 번들거려요', 'combo'], ['얼굴 전체가 번들거려요', 'oily'], ['별 느낌 없이 편해요', 'normal']]],
+    ['오후가 되면 얼굴은?', [['여전히 건조하거나 각질이 보여요', 'dry'], ['T존만 번들거려요', 'combo'], ['전체가 번들거려요', 'oily'], ['아침과 비슷해요', 'normal']]],
+    ['새 화장품을 쓰면 따갑거나 붉어지는 일이?', [['자주 있어요', 'sens'], ['가끔 있어요', 'some'], ['거의 없어요', 'none']]],
+  ],
+  quiz(container, onDone){
+    const answers = [];
+    const NAME = {dry: '건성', oily: '지성', combo: '복합성', normal: '중성'};
+    const step = () => {
+      if (answers.length === RUTI.skinType.QUIZ.length) {
+        const votes = answers.slice(0, 2), base = votes[0] === votes[1] ? votes[0] : (votes.includes('combo') ? 'combo' : votes[1]);
+        const type = answers[2] === 'sens' ? '민감성' : NAME[base];
+        const extra = answers[2] === 'sens' ? `기본은 ${NAME[base]}에 가깝고, 자극에 예민한 편이에요.` : '';
+        container.replaceChildren(RUTI.el('p', {class: 'sk-result'}, `나는 `, RUTI.el('b', {}, type), ' 피부에 가까워요'),
+          extra ? RUTI.el('p', {class: 'muted'}, extra) : '', RUTI.skinType.card(type),
+          RUTI.el('p', {class: 'muted'}, '간단한 참고용 테스트예요. 피부 고민이 계속되면 피부과 전문의와 상담하세요.'),
+          RUTI.el('button', {type: 'button', class: 'sheet-save', onclick: () => onDone(type, base === 'dry' && type === '민감성')}, `${type}으로 고르기`));
+        return;
+      }
+      const [q, opts] = RUTI.skinType.QUIZ[answers.length];
+      container.replaceChildren(RUTI.el('p', {class: 'muted'}, `${answers.length + 1} / ${RUTI.skinType.QUIZ.length}`), RUTI.el('p', {class: 'sk-q'}, q),
+        ...opts.map(([t, v]) => RUTI.el('button', {type: 'button', class: 'sk-opt', onclick: () => { answers.push(v); step(); }}, t)));
+    };
+    step();
   },
 };

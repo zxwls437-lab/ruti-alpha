@@ -48,3 +48,34 @@ body.in-app .topbar{padding-top:10px}
 .chip-toggle[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
 .tag-x{background:none;color:inherit;min-height:0;padding:0 0 0 6px;font-size:14px}
 .sheet-save{width:100%;margin-top:16px;min-height:50px;font-size:16px}
+
+/* 피부 타입 그림 설명 */
+.sk-card{background:var(--bg);border-radius:18px;padding:12px 14px;margin:6px 0 4px}
+.sk-card b{display:block;font-size:16px;margin-top:6px}.sk-card p{margin:4px 0;font-size:14px;line-height:1.6}
+.sk-card ul{margin:6px 0;padding-left:18px;font-size:13.5px;color:var(--muted);line-height:1.7}
+.sk-tip{color:var(--brand)}
+.sk-scene{display:block;width:100%;height:auto;border-radius:12px;background:var(--soft)}
+.sk-scene .sk-epi{fill:#F7DCCB}.sk-scene .sk-derm{fill:#F0C7B6}.sk-scene .sk-mortar{fill:#E6C9AA}.sk-scene .sk-brick{fill:#FFF6EC}
+.sk-scene .sk-pore{fill:#E8B9A2}.sk-scene .sk-water{fill:#5FA3D6}.sk-scene .sk-oil{fill:#E2B23F}.sk-scene .sk-dot{fill:#D69A2E}
+.sk-scene .sk-shine{fill:#F6D77A;opacity:.35;animation:skShine 2.4s ease-in-out infinite}
+.sk-scene .sk-redden{fill:#E0705F;opacity:.15;animation:skRed 1.6s ease-in-out infinite}
+.sk-scene .sk-spark{fill:none;stroke:#E0705F;stroke-width:2;stroke-linecap:round;animation:skSpark 1.2s ease-in-out infinite}
+.sk-scene .sk-split{stroke:#736A64;stroke-width:1.5;stroke-dasharray:4 4}
+.sk-scene .sk-lbl{font-size:11px;fill:#736A64;font-weight:700}
+.sk-rise{animation:skRise 3s ease-in infinite}.sk-ooze{animation:skOoze 2.8s ease-out infinite}
+.sk-bob{animation:skBob 2.4s ease-in-out infinite}.sk-sink{animation:skSink 2.4s ease-in infinite}
+.sk-flake{transform-box:fill-box;transform-origin:left bottom;animation:skFlake 3s ease-in-out infinite}.sk-flake.d2{animation-delay:1.2s}
+@keyframes skRise{0%{transform:translateY(0);opacity:1}70%{opacity:.9}100%{transform:translateY(-70px);opacity:0}}
+@keyframes skOoze{0%{transform:translate(0,0);opacity:0}15%{opacity:1}60%{transform:translate(0,-52px)}100%{transform:translate(var(--dx,40px),-58px);opacity:0}}
+@keyframes skBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes skSink{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(48px);opacity:0}}
+@keyframes skFlake{0%,100%{transform:rotate(0)}50%{transform:rotate(-10deg) translateY(-3px)}}
+@keyframes skShine{0%,100%{opacity:.15}50%{opacity:.5}}
+@keyframes skRed{0%,100%{opacity:.08}50%{opacity:.4}}
+@keyframes skSpark{0%,100%{opacity:0}50%{opacity:1}}
+@media (prefers-color-scheme:dark){.sk-scene .sk-epi{fill:#A87764}.sk-scene .sk-derm{fill:#8E5F52}.sk-scene .sk-mortar{fill:#7A6150}.sk-scene .sk-brick{fill:#D9C3AE}.sk-scene .sk-lbl{fill:#EFE8E1}}
+@media (prefers-reduced-motion:reduce){.sk-scene *{animation:none!important}}
+.sk-q{font-size:17px;font-weight:700;margin:4px 0 10px}
+.sk-opt{display:block;width:100%;text-align:left;margin-bottom:8px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:500;min-height:50px;border-radius:16px}
+.sk-result{font-size:18px;margin:4px 0}.sk-result b{color:var(--brand)}
+.sk-help{background:none;color:var(--brand);padding:6px 0;min-height:40px;font-weight:600}
