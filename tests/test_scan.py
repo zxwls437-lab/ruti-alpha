@@ -274,6 +274,22 @@ def test_verdict_memory_conflict_reason(client):
     v = scan.build_verdict(r, ["향료에 민감해요"])
     assert v["level"] == "avoid" and v["title"] == "맞지 않을 수 있어요"
     assert v["reasons"][0] == "향료가 들어 있어요. '향료에 민감해요'라고 알려주셨어요."
+    # 그림 설명: 충돌한 성분에 맞는 애니메이션 + 그 사람이 적은 피부 정보
+    assert v["explainers"] == [{"scenario": "fragrance", "ingredient": "향료", "memo": "향료에 민감해요", "personal": True}]
+
+
+def test_explainer_scenarios():
+    assert scan.explainer_scenario("향료(Fragrance)") == "fragrance"
+    assert scan.explainer_scenario("레티놀") == "retinol"
+    assert scan.explainer_scenario("살리실릭애씨드") == "exfoliant"
+    assert scan.explainer_scenario("변성알코올") == "alcohol"
+    assert scan.explainer_scenario("나이아신아마이드") == "generic"
+    items = [{"input": "세라마이드엔피", "flags": []}, {"input": "페녹시에탄올", "flags": ["kr_limit"]}]
+    ex = scan.build_explainers(items, ["건성 피부"], "good")
+    assert [e["scenario"] for e in ex] == ["limit", "ceramide"]
+    assert ex[0]["personal"] is False and ex[1]["memo"] == "건성 피부"
+    # 피부 정보가 없으면 세라마이드 설명은 붙이지 않음 (맞춤 근거가 없으므로)
+    assert [e["scenario"] for e in scan.build_explainers(items, [], "good")] == ["limit"]
 
 
 def test_scan_returns_verdict_and_explain_endpoint(client, monkeypatch):

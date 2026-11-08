@@ -22,6 +22,7 @@
 .verdict.good{background:#EAF2EE}.verdict.check{background:#FCF1DE}.verdict.avoid{background:#FBE7E3}
 @media (prefers-color-scheme:dark){.verdict.good{background:#183a32}.verdict.check{background:#3d3218}.verdict.avoid{background:#4a1d20}}
 .vhead{display:flex;align-items:center;gap:10px;font-size:20px}.vicon{font-size:28px}
+.explainers{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.explain-btn{background:var(--card);font-size:14px;padding:8px 14px}
 .vsum{margin:10px 0 4px;line-height:1.6}.verdict ul{margin:6px 0 0;padding-left:20px;line-height:1.7}
 .notice{font-size:13px;color:var(--muted);background:var(--bg);padding:10px 12px;border-radius:10px;margin-top:10px}
 </style></head><body>
@@ -73,6 +74,7 @@
         <div class="vhead"><span class="vicon" id="vIcon"></span><strong id="vTitle"></strong></div>
         <p id="vSummary" class="vsum"></p>
         <ul id="vPoints"></ul>
+        <div class="explainers hidden" id="vExplain"></div>
         <p class="muted hidden" id="vLoading">RUTI가 쉬운 말로 정리하고 있어요…</p>
       </div>
       <div class="hidden" id="skinAsk">
@@ -119,6 +121,7 @@
   </div>
 </main>
 <script src="/static/common.js"></script>
+<script src="/static/explain.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let imageData = null, current = null;
@@ -238,6 +241,16 @@ function renderVerdict(r){
   const points = [...(v.reasons || []), ...(ex ? ex.points : [])].slice(0, 5);
   $('vPoints').replaceChildren(...points.map(t => el('li', {}, t)));
   $('skinAsk').classList.toggle('hidden', !v.needs_skin_info);
+  // 판정 이유를 피부 단면 애니메이션으로 (문구는 내 피부 정보로 채움)
+  const exs = v.explainers || [];
+  $('vExplain').classList.toggle('hidden', !exs.length);
+  $('vExplain').replaceChildren(...exs.map((x, i) => el('button', {type: 'button', class: 'ghost explain-btn', onclick: () => openExplainer(exs, i)},
+    `▶ ${RUTI.explainer.label(x)} 그림으로 보기`)));
+}
+async function openExplainer(items, start, products){
+  let memories = [];
+  try { memories = (await api('/memory')).memories.map(m => m.content); } catch {}
+  RUTI.explainer.open(items, {memories, products: products || [], start});
 }
 const SKIN_OPTIONS = ['건성 피부', '지성 피부', '복합성 피부', '민감성 피부', '향료에 민감해요', '여드름이 잘 나요'];
 $('skinChips').replaceChildren(...SKIN_OPTIONS.map(t => el('button', {type: 'button', class: 'ghost', style: 'padding:6px 12px', onclick: async (e) => {
@@ -325,7 +338,8 @@ $('askBtn').addEventListener('click', () => {
 function renderVanity(v){
   $('vanityChecks').replaceChildren(...v.checks.map(c => el('div', {class: 'ing ' + (c.level === 'caution' ? 'orange' : '')},
     el('div', {class: 'head'}, el('strong', {}, c.title), el('span', {class: 't ' + (c.level === 'caution' ? 'orange' : 'gray')}, c.level === 'caution' ? '주의' : '참고')),
-    el('p', {style: 'margin:6px 0 4px;line-height:1.6'}, c.detail), el('div', {class: 'muted'}, c.products.join(' · ')))));
+    el('p', {style: 'margin:6px 0 4px;line-height:1.6'}, c.detail), el('div', {class: 'muted'}, c.products.join(' · ')),
+    c.explainer ? el('button', {type: 'button', class: 'ghost explain-btn', style: 'margin-top:8px', onclick: () => openExplainer([{scenario: c.explainer, ingredient: '레티놀 + 각질 제거', memo: '', personal: false}], 0, c.products)}, '▶ 같이 쓰기 그림으로 보기') : null)));
   if (v.items.length && !v.checks.length) $('vanityChecks').append(el('p', {class: 'muted', style: 'margin:0'}, '함께 쓸 때 주의할 조합은 보이지 않아요.'));
   $('vanityList').replaceChildren(...v.items.map(it => el('div', {class: 'hist'},
     el('span', {}, it.product_name, ...Object.values(it.groups).map(g => el('span', {class: 't gray', style: 'margin-left:6px'}, g))),

@@ -52,7 +52,7 @@ def check_combinations(items: list[dict], memories: list[str]) -> list[dict]:
         out.append({"level": "caution", "kind": "retinoid_exfoliant",
                     "title": "레티놀류와 각질 제거 성분을 함께 쓰고 있어요",
                     "detail": "같은 시간에 겹쳐 바르면 자극이 커질 수 있어요. 아침·저녁으로 나누거나 번갈아 쓰는 걸 권해요.",
-                    "products": sorted(set(retinoid) | set(exfol))})
+                    "products": sorted(set(retinoid) | set(exfol)), "explainer": "combo"})
     if len(set(exfol)) >= 2:
         out.append({"level": "caution", "kind": "multiple_exfoliants",
                     "title": f"각질 제거 성분이 {len(set(exfol))}개 제품에 들어 있어요",

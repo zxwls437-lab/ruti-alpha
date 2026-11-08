@@ -218,7 +218,7 @@ def admin_page():
 
 @app.get("/static/{name}", include_in_schema=False)
 def static_file(name: str):
-    if name not in {"common.css", "common.js", "offline.html"}:
+    if name not in {"common.css", "common.js", "explain.js", "offline.html"}:
         raise HTTPException(404)
     return FileResponse(STATIC / name)
 

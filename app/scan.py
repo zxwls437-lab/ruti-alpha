@@ -213,7 +213,55 @@ def build_verdict(result: dict, memories: list[str], readability: str = "clear")
         level, title = "good", "잘 맞을 가능성이 높아요"
     else:
         level, title = "good", "피해야 할 성분은 보이지 않아요"
-    return {"level": level, "title": title, "reasons": reasons[:3], "needs_skin_info": not memories}
+    return {"level": level, "title": title, "reasons": reasons[:3], "needs_skin_info": not memories,
+            "explainers": build_explainers(items, memories, level)}
+
+
+# ---------- 3-2. 그림 설명(애니메이션) 고르기 ----------
+# 판정 이유마다 앱이 보여줄 피부 단면 애니메이션 종류를 정한다. 그림은 미리 만들어 둔 7종이고,
+# 문구는 각 사용자의 피부 정보(memo)로 채워진다. 규칙으로만 고르므로 추가 AI 비용이 없다.
+_ALCOHOL = {"에탄올", "변성알코올", "알코올", "에틸알코올"}
+
+
+def explainer_scenario(name: str) -> str:
+    from .vanity import groups_of  # 순환 import 방지
+    groups = groups_of([name])
+    if "fragrance" in groups:
+        return "fragrance"
+    if "retinoid" in groups:
+        return "retinol"
+    if groups.keys() & {"aha", "bha", "pha"}:
+        return "exfoliant"
+    if normalize(strip_parens(name)) in _ALCOHOL or normalize(name) in _ALCOHOL:
+        return "alcohol"
+    return "generic"
+
+
+def build_explainers(items: list[dict], memories: list[str], level: str) -> list[dict]:
+    out: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(scenario: str, name: str, memo: str, personal: bool) -> None:
+        label = strip_parens(name) or name
+        if (scenario, label) in seen:
+            return
+        seen.add((scenario, label))
+        out.append({"scenario": scenario, "ingredient": label, "memo": memo, "personal": personal})
+
+    for it in items:
+        if "memory_conflict" in it["flags"]:
+            name = it["input"]
+            memo = next((m for m in memories if any(k and k in m for k in (strip_parens(name), name))), "")
+            add(explainer_scenario(name), name, memo, True)
+    limit = next((it for it in items if "kr_limit" in it["flags"]), None)
+    if limit:
+        add("limit", limit["input"], "", False)
+    dry = next((m for m in memories if "건성" in m or "건조" in m), "")
+    if level == "good" and dry:
+        cer = next((it for it in items if "세라마이드" in it["input"]), None)
+        if cer:
+            add("ceramide", cer["input"], dry, True)
+    return out[:3]
 
 
 EXPLAIN_PROMPT = """당신은 스킨케어 도우미 RUTI입니다. 화장품 전성분 분석 결과를 소비자가 바로 이해하도록 짧게 설명합니다.
