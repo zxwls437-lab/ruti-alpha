@@ -207,8 +207,11 @@ RUTI.skin = {
           pick(g, g.options.find(([sh]) => sh === type)[1]);
           if (dry) chosen.add('건조함이 고민이에요');
           groups.forEach(fn => fn()); showType(type);
-        })}, '내 피부 타입을 모르겠어요 · 1분 테스트');
-        sheet.append(help, typeBox);
+        })}, el('span', {class: 'sk-help-icon'}, '?'),
+          el('span', {class: 'sk-help-text'}, el('b', {}, '내 피부 타입을 모르겠어요'), el('span', {}, '질문 3개 · 1분 테스트')),
+          el('span', {class: 'sk-help-go'}, '›'));
+        row.before(help);
+        sheet.append(typeBox);
         const cur = g.options.find(([, full]) => chosen.has(full));
         if (cur) showType(cur[0]);
       }
