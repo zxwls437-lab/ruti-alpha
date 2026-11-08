@@ -72,3 +72,10 @@
 - 안드로이드·iOS 앱 `mobile/` (Expo SDK 58): 네이티브 하단 탭 + 탭마다 RUTI 화면(WebView), 카메라 권한, 뒤로가기,
   오프라인 화면, 바깥 링크는 외부 앱, 로그인 상태 탭 간 공유, 결제용 연결 통로. 웹은 앱 안이면 웹 하단 탭을 숨김(`RUTI.inApp`)
 - 남은 것: Render 실제 배포 → `mobile/eas.json` 서버 주소 교체 → EAS 빌드 → 구글 플레이 비공개 테스트, 구독 결제(Play Billing), 실사진 정확도 테스트
+
+## 9. 배포 현황 (2026-11-08)
+- Render 웹: `ruti` (srv-dbo77hei0phs73e3tfk0) → https://ruti.onrender.com · 무료 · 싱가포르 · main 푸시 시 자동 배포
+- Render DB: `ruti-db` (dpg-dbo76lu7bikc738558og-a) · 무료 · **2026-12-08 만료** → 시범 운영 전 유료 전환 필요
+- 관리자 아이디 `rutiadmin` (비밀번호는 대표에게 전달, 첫 로그인 후 변경 권장)
+- 남은 설정 (Render 화면 → ruti → Environment): `OPENAI_API_KEY`, `DATA_GO_KR_SERVICE_KEY`, `RUTI_OPERATOR_NAME`, `RUTI_CONTACT_EMAIL`, `RUTI_PRIVACY_OFFICER`
+- 성분 사전은 비어 있음 → 관리자 화면 '식약처에서 바로 받기' 또는 PC에서 export 파일 올리기
