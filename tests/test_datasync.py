@@ -1,6 +1,5 @@
 import gzip
 import json
-import time
 
 from app import datasync, mfds
 from app.db import SessionLocal
@@ -52,11 +51,16 @@ def test_mfds_sync_needs_key_and_runs_in_background(client, monkeypatch):
     pages = {"ingredient": [{"INGR_KOR_NAME": "글리세린", "INGR_ENG_NAME": "Glycerin"}], "restricted": []}
     monkeypatch.setattr(mfds, "iter_pages", lambda d, rows=100, max_pages=0: iter([(1, len(pages.get(d, [])), pages.get(d, []))]))
     datasync.job.update(state="idle")
+
+    class InlineThread:  # 테스트용 메모리 DB는 연결 하나를 같이 써서, 백그라운드 대신 바로 실행
+        def __init__(self, target, **_kw):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr(datasync.threading, "Thread", InlineThread)
     assert client.post("/admin/data/mfds-sync", headers=admin).status_code == 202
-    for _ in range(50):
-        if datasync.job["state"] != "running":
-            break
-        time.sleep(0.05)
     assert datasync.job["state"] == "done", datasync.job
     with SessionLocal() as db:
         assert db.query(Ingredient).filter_by(name_ko="글리세린").count() == 1
