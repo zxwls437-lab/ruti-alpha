@@ -244,7 +244,7 @@ def test_pwa_files(client):
     m = client.get("/manifest.webmanifest")
     assert m.status_code == 200 and m.headers["content-type"].startswith("application/manifest+json")
     data = m.json()
-    assert data["display"] == "standalone" and data["start_url"].startswith("/scan")
+    assert data["display"] == "standalone" and data["start_url"].startswith("/home")
     for icon in data["icons"]:
         r = client.get(icon["src"])
         assert r.status_code == 200 and r.content[:4] == b"\x89PNG", icon["src"]
@@ -253,6 +253,10 @@ def test_pwa_files(client):
     assert client.get("/static/offline.html").status_code == 200
     assert client.get("/static/icons/../main.py").status_code == 404
     assert 'rel="manifest"' in client.get("/scan").text
+    # 새 화면: 홈(/ 와 /home), 루틴, 개발 현황(/dev)
+    for path in ("/", "/home", "/routine", "/dev", "/static/explain.js"):
+        assert client.get(path).status_code == 200, path
+    assert "홈" in client.get("/static/common.js").text
 
 
 def test_legal_pages_public_and_filled(client, monkeypatch):

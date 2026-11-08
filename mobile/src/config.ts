@@ -10,11 +10,13 @@ export const SERVER_ORIGIN = new URL(SERVER_URL).origin;
 
 // 네이티브 탭과 서버 화면 주소의 짝. 다른 탭 주소로 가는 링크는 탭 전환으로 바꾼다.
 export const TABS = {
-  index: '/scan',
+  index: '/home',
+  scan: '/scan',
+  routine: '/routine',
   community: '/community',
   chat: '/chat',
-  mypage: '/mypage',
 } as const;
+// 내 정보(/mypage)는 탭이 아니라 각 화면 오른쪽 위 프로필 버튼으로 들어간다 (같은 탭 안에서 열림)
 export type TabName = keyof typeof TABS;
 
 export const COLORS = {

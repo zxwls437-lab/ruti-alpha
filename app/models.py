@@ -232,6 +232,32 @@ class VanityItem(Base):
     product_name: Mapped[str] = mapped_column(String(200))
     ingredients: Mapped[str] = mapped_column(Text)  # JSON 배열
     scan_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    step: Mapped[str] = mapped_column(String(20), default="")    # cleanser|toner|essence|serum|cream|sunscreen|other (비면 이름으로 추정)
+    slots: Mapped[str] = mapped_column(String(10), default="")   # "am,pm" | "am" | "pm" | "off" (비면 성분으로 추정)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class RoutineCheck(Base):
+    """루틴 체크: 그날(한국 날짜) 아침/저녁에 이 제품을 발랐는지."""
+    __tablename__ = "routine_checks"
+    __table_args__ = (UniqueConstraint("user_id", "day", "slot", "item_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("vanity_items.id", ondelete="CASCADE"), index=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)   # YYYY-MM-DD (한국 시간)
+    slot: Mapped[str] = mapped_column(String(2))               # am | pm
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class SkinLog(Base):
+    """오늘 피부 컨디션 한 줄 기록 (피부 상태 정보라 민감정보 동의가 있어야 저장)."""
+    __tablename__ = "skin_logs"
+    __table_args__ = (UniqueConstraint("user_id", "day"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    mood: Mapped[int] = mapped_column(Integer)                  # 1 안 좋아요 · 2 보통 · 3 좋아요
+    note: Mapped[str] = mapped_column(String(200), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

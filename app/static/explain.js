@@ -90,6 +90,10 @@
     fragrance: c => personal(c, '향료', [['향료는 아주 작은 알갱이', '민감한 피부는 벽돌 사이 틈이 조금 더 벌어져 있을 수 있어요. 그 틈으로 향료 성분이 들어갈 수 있어요.'], IRRITATE], '무향 제품을 골라 보세요.'),
     generic: c => personal(c, c.ingredient, [[`${short(c.ingredient, 12)}${josa(c.ingredient, '이', '가')} 피부에 닿으면`, '민감한 피부는 벽돌 사이 틈이 조금 더 벌어져 있을 수 있어요. 그 틈으로 성분이 들어갈 수 있어요.'], IRRITATE],
       `성분표에 '${short(c.ingredient, 12)}'${josa(c.ingredient, '이', '가')} 없는 제품을 골라 보세요.`),
+    essential_oil: c => personal(c, '에센셜 오일', [['식물에서 뽑은 향기 오일', '라벤더·티트리 같은 에센셜 오일도 향을 내는 성분이에요. 민감한 피부는 벽돌 틈으로 들어온 향 성분에 반응할 수 있어요.'], IRRITATE],
+      "성분표에서 식물 이름 + '오일'(씨오일 제외)을 확인해 보세요."),
+    paraben: c => personal(c, '파라벤', [['제품이 상하지 않게 지키는 보존제', '파라벤은 식약처 기준 안에서 쓰여 대부분의 피부엔 괜찮아요. 다만 드물게 이 성분에 반응하는 피부가 있어요.'],
+      ['반응하는 피부라면', '바른 자리가 붉어지거나 가려울 수 있어요. 모든 사람에게 생기는 건 아니에요.']], "'파라벤 프리' 표시가 있는 제품을 골라 보세요."),
     alcohol: c => personal(c, '알코올', [['알코올은 빨리 날아가는 성분', '피부에 닿은 알코올이 빠르게 날아가면서, 피부 속 수분(파란 방울)도 함께 데려갈 수 있어요.'],
       ['원래 건조한 피부라면', '수분이 더 줄어서 당기고, 각질이 일어날 수 있어요.']], "성분표 앞쪽에 '에탄올'이 없는 제품을 골라 보세요."),
     exfoliant: c => personal(c, '각질 제거 성분', [['AHA·BHA는 묵은 각질을 녹여요', '벽돌 사이를 붙이는 접착제를 느슨하게 해서, 묵은 각질이 빨리 떨어지게 해요.'],
@@ -127,11 +131,12 @@
   };
   const LEGEND = {
     fragrance: () => [['p-scent', '향료']], generic: c => [['p-scent', short(c.ingredient, 10)]],
+    essential_oil: () => [['p-scent', '에센셜 오일']], paraben: () => [['p-limit', '파라벤(보존제)']],
     alcohol: c => [['p-alcohol', short(c.ingredient, 10)], ['drop', '피부 속 수분']], exfoliant: c => [['p-acid', short(c.ingredient, 10)]],
     retinol: c => [['p-retinol', short(c.ingredient, 10)]], limit: c => [['p-limit', short(c.ingredient, 10)]],
     ceramide: () => [['p-cera', '세라마이드'], ['drop', '피부 속 수분']], combo: () => [['p-retinol', '레티놀류'], ['p-acid', '각질 제거 성분']],
   };
-  const TAB = {fragrance: '향료', generic: null, alcohol: '알코올', exfoliant: '각질 제거', retinol: '레티놀', limit: '사용 기준', ceramide: '세라마이드', combo: '같이 쓰기'};
+  const TAB = {fragrance: '향료', essential_oil: '에센셜 오일', paraben: '파라벤', generic: null, alcohol: '알코올', exfoliant: '각질 제거', retinol: '레티놀', limit: '사용 기준', ceramide: '세라마이드', combo: '같이 쓰기'};
 
   // ---------- 그림 엔진 (한 번만 만든다) ----------
   let built = null;
@@ -251,6 +256,8 @@
         irritate(E((t - 7) / 1.2) * fade(t), t, [[2, 1.55], [4, 1.43], [5, 1.31]]);
       },
       generic(t) { SCENES.fragrance(t, 'p-scent'); },
+      essential_oil(t) { SCENES.fragrance(t, 'p-scent'); },
+      paraben(t) { SCENES.fragrance(t, 'p-limit'); },
       alcohol(t) {
         WATER.forEach(([x, z0], i) => {
           let z = z0 + .05 * Math.sin(t * 2 + i), xx = x, op = clamp((t + .5) / .5);

@@ -8,7 +8,7 @@ SplashScreen.preventAutoHideAsync();
 // 서버가 늦게 깨어나도 시작 화면에 갇히지 않게
 setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 6000);
 
-// 진짜 안드로이드/iOS 하단 탭. 각 탭 안에는 RUTI 화면이 들어간다.
+// 진짜 안드로이드/iOS 하단 탭 (홈·분석·루틴·커뮤니티·상담). 각 탭 안에는 RUTI 화면이 들어간다.
 export default function TabLayout() {
   const c = COLORS[useColorScheme() === 'dark' ? 'dark' : 'light'];
   return (
@@ -18,8 +18,16 @@ export default function TabLayout() {
       iconColor={{ default: c.muted, selected: c.brand }}
       labelStyle={{ default: { color: c.muted }, selected: { color: c.brand } }}>
       <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>홈</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/home.png')} renderingMode="template" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="scan">
         <NativeTabs.Trigger.Label>분석</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/scan.png')} renderingMode="template" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="routine">
+        <NativeTabs.Trigger.Label>루틴</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/routine.png')} renderingMode="template" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="community">
         <NativeTabs.Trigger.Label>커뮤니티</NativeTabs.Trigger.Label>
@@ -28,10 +36,6 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="chat">
         <NativeTabs.Trigger.Label>상담</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/chat.png')} renderingMode="template" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="mypage">
-        <NativeTabs.Trigger.Label>내 정보</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/me.png')} renderingMode="template" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

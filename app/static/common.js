@@ -124,35 +124,44 @@ window.addEventListener('beforeinstallprompt', e => {
   nav.append(btn);
 });
 
-// 앱 화면: 사용자 화면(분석·커뮤니티·상담·내 정보)의 메뉴를 휴대폰 앱처럼 하단 탭으로 바꾼다.
+// 앱 화면: 사용자 화면의 메뉴를 휴대폰 앱처럼 하단 탭(홈·분석·루틴·커뮤니티·상담)으로 바꾼다.
 // 관리자·개발 현황 링크는 관리자 계정에만 보인다.
 (function appNav(){
   const TABS = [
+    ['/home', '홈', '<path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z"/>'],
     ['/scan', '분석', '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'],
+    ['/routine', '루틴', '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/>'],
     ['/community', '커뮤니티', '<circle cx="9" cy="9" r="3.5"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c.8-3 3.2-5 6-5s5.2 2 6 5M15 15c2.5 0 4.5 1.5 5.5 4"/>'],
     ['/chat', '상담', '<path d="M4 5h16v11H9l-5 4z"/>'],
-    ['/mypage', '내 정보', '<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'],
   ];
+  // 내 정보는 하단 탭 대신 오른쪽 위 프로필 버튼
+  const PAGES = [...TABS.map(([p]) => p), '/mypage'];
   const nav = document.querySelector('nav');
-  if (!nav || !TABS.some(([p]) => p === location.pathname)) return;
+  const here = location.pathname === '/' ? '/home' : location.pathname;
+  if (!nav || !PAGES.includes(here)) return;
   const logout = nav.querySelector('#logout');
   const top = RUTI.el('header', {class: 'topbar'}, RUTI.el('b', {}, 'RUTI'));
   const tabs = RUTI.el('nav', {class: 'tabs'}); tabs.setAttribute('aria-label', '하단 메뉴');
   for (const [path, label, icon] of TABS) {
-    const a = RUTI.el('a', {href: path, class: path === location.pathname ? 'on' : ''});
-    if (path === location.pathname) a.setAttribute('aria-current', 'page');
+    const a = RUTI.el('a', {href: path, class: path === here ? 'on' : ''});
+    if (path === here) a.setAttribute('aria-current', 'page');
     a.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`;
     a.append(label);
     tabs.append(a);
   }
-  if (logout) top.append(logout);
+  const me = RUTI.el('a', {href: '/mypage', class: 'avatar-btn' + (here === '/mypage' ? ' on' : ''), 'aria-label': '내 정보'}, '');
+  me.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>';
+  top.append(me);
+  if (logout) top.insertBefore(logout, me);
   nav.replaceWith(top);
   document.body.classList.add('app');
   // 앱 안에서는 진짜(네이티브) 하단 탭을 쓰므로 웹 탭은 붙이지 않는다
   if (RUTI.inApp) document.body.classList.add('in-app'); else document.body.append(tabs);
   if (RUTI.token) RUTI.api('/auth/me').then(u => {
+    const initial = (u && (u.name || u.nickname) || '').trim().charAt(0);
+    if (initial) me.replaceChildren(initial);
     if (u && u.is_admin) top.insertBefore(RUTI.el('span', {class: 'adminlinks'},
-      RUTI.el('a', {href: '/admin'}, '관리자'), RUTI.el('a', {href: '/'}, '개발 현황')), logout || null);
+      RUTI.el('a', {href: '/admin'}, '관리자'), RUTI.el('a', {href: '/dev'}, '개발 현황')), logout || me);
   }).catch(() => {});
 })();
 
@@ -162,8 +171,12 @@ RUTI.skin = {
   GROUPS: [
     // 유분·수분 타입(건성/지성/복합성/중성)은 하나만, 민감성은 함께 고를 수 있음
     {title: '피부 타입', single: true, options: [['건성', '건성 피부'], ['지성', '지성 피부'], ['복합성', '복합성 피부'], ['중성', '중성 피부'], ['민감성', '민감성 피부', true]]},
-    {title: '잘 안 맞는 성분', options: [['향료', '향료에 민감해요'], ['알코올', '알코올에 민감해요'], ['각질 제거 (AHA·BHA)', '각질 제거 성분(AHA·BHA)에 민감해요'], ['레티놀', '레티놀에 민감해요']]},
-    {title: '피부 고민', options: [['건조함', '건조함이 고민이에요'], ['트러블', '트러블이 잘 나요'], ['붉어짐', '붉어짐이 고민이에요'], ['모공', '모공이 고민이에요'], ['주름', '주름이 고민이에요'], ['잡티·톤', '잡티·톤이 고민이에요']]},
+    {title: '잘 안 맞는 성분', info: true, options: [['향료', '향료에 민감해요'], ['알코올', '알코올에 민감해요'], ['각질 제거 (AHA·BHA)', '각질 제거 성분(AHA·BHA)에 민감해요'],
+      ['레티놀', '레티놀에 민감해요'], ['에센셜 오일', '에센셜 오일에 민감해요'], ['파라벤', '파라벤에 민감해요']]},
+    {title: '피부 고민', options: [['건조함', '건조함이 고민이에요'], ['속건조', '속건조가 고민이에요'], ['피지·번들거림', '피지·번들거림이 고민이에요'],
+      ['트러블', '트러블이 잘 나요'], ['여드름 자국', '여드름 자국이 고민이에요'], ['블랙헤드', '블랙헤드가 고민이에요'], ['모공', '모공이 고민이에요'],
+      ['각질', '각질이 고민이에요'], ['붉어짐', '붉어짐이 고민이에요'], ['주름', '주름이 고민이에요'], ['탄력', '탄력이 고민이에요'],
+      ['잡티·톤', '잡티·톤이 고민이에요'], ['칙칙함', '칙칙함이 고민이에요'], ['다크서클', '다크서클이 고민이에요']]},
     {title: '기타', options: [['임신·수유 중', '임신·수유 중이에요']]},
   ],
   get all(){ return RUTI.skin.GROUPS.flatMap(g => g.options); },
@@ -189,6 +202,9 @@ RUTI.skin = {
     // 피부 타입: 누르면 바로 아래에 그림 설명, 모르면 1분 테스트
     const typeBox = el('div', {});
     const showType = short => typeBox.replaceChildren(...[RUTI.skinType.card(short)].filter(Boolean));
+    // 잘 안 맞는 성분: 누르면 바로 아래에 쉬운 설명 + 애니메이션 버튼
+    const ingBox = el('div', {});
+    const showIng = short => ingBox.replaceChildren(...[RUTI.skinIngredient.card(short)].filter(Boolean));
     const pick = (g, full) => {
       const free = g.options.find(([, f]) => f === full)?.[2];
       if (g.single && !free) g.options.forEach(([, f, together]) => { if (!together) chosen.delete(f); });
@@ -200,6 +216,7 @@ RUTI.skin = {
         const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => {
           if (chosen.has(full)) chosen.delete(full); else pick(g, full);
           if (g.single) showType(short);
+          if (g.info) showIng(short);
           groups.forEach(fn => fn());
         }}, short);
         b.setAttribute('aria-pressed', String(chosen.has(full)));
@@ -207,6 +224,7 @@ RUTI.skin = {
       }));
       draw();
       sheet.append(el('h3', {}, g.title), row);
+      if (g.info) sheet.append(ingBox);
       if (g.single) {
         const help = el('button', {type: 'button', class: 'sk-help', onclick: () => RUTI.skinType.quiz(typeBox, ({types, concerns}) => {
           g.options.forEach(([, f]) => chosen.delete(f));
@@ -391,5 +409,29 @@ RUTI.skinType = {
       container.scrollIntoView({block: 'nearest', behavior: 'smooth'});
     };
     intro();
+  },
+};
+
+// ---------- 잘 안 맞는 성분 설명 (고르는 창 안에서, 애니메이션은 explain.js) ----------
+RUTI.skinIngredient = {
+  INFO: {
+    '향료': {scenario: 'fragrance', ingredient: '향료', what: '좋은 향을 내려고 넣는 성분이에요. 여러 향 성분이 섞여 있어요.',
+      why: '민감한 피부에서 붉어짐·가려움을 가장 흔하게 일으키는 성분 중 하나예요.', find: "성분표에 '향료'나 리모넨·리날룰이 있는지 보세요."},
+    '알코올': {scenario: 'alcohol', ingredient: '에탄올', what: '바르면 산뜻하게 마르고 흡수를 돕는 성분이에요.',
+      why: '날아가면서 피부 속 수분도 함께 데려가, 건조하거나 당길 수 있어요.', find: "'에탄올'·'변성알코올'을 확인해요. 세틸·스테아릴알코올은 보습 성분이라 괜찮아요."},
+    '각질 제거 (AHA·BHA)': {scenario: 'exfoliant', ingredient: '각질 제거 성분', what: '묵은 각질을 녹여 피부결을 매끈하게 하는 성분이에요.',
+      why: '각질층이 얇아지면 예민한 피부는 따갑거나 붉어질 수 있어요.', find: '글라이콜릭애씨드·락틱애씨드(AHA), 살리실릭애씨드(BHA)를 확인해요.'},
+    '레티놀': {scenario: 'retinol', ingredient: '레티놀', what: '주름 개선 기능성 성분으로, 피부가 새로 바뀌는 속도를 높여요.',
+      why: '처음엔 따갑거나 각질이 일어날 수 있고, 햇빛에 예민해져요.', find: '레티놀·레티닐팔미테이트·레티날을 확인해요.'},
+    '에센셜 오일': {scenario: 'essential_oil', ingredient: '에센셜 오일', what: '라벤더·티트리처럼 식물에서 뽑은 향기 오일이에요.',
+      why: '천연 성분이라도 향료처럼 자극이 될 수 있어요.', find: "'라벤더오일', '티트리잎오일'처럼 식물 이름 + 오일을 확인해요. 호호바씨오일 같은 씨앗 기름과는 달라요."},
+    '파라벤': {scenario: 'paraben', ingredient: '파라벤', what: '제품이 상하지 않게 하는 보존제예요.',
+      why: '식약처 기준 안에서 쓰여 대부분은 괜찮지만, 드물게 맞지 않는 분이 있어요.', find: '메틸파라벤·프로필파라벤처럼 이름에 파라벤이 들어가요.'},
+  },
+  card(short){
+    const i = RUTI.skinIngredient.INFO[short], el = RUTI.el; if (!i) return null;
+    return el('div', {class: 'sk-card'}, el('b', {}, short), el('p', {}, i.what), el('p', {}, '⚠️ ' + i.why), el('p', {class: 'sk-tip'}, '🔎 ' + i.find),
+      RUTI.explainer ? el('button', {type: 'button', class: 'ghost small', style: 'margin-top:6px', onclick: () =>
+        RUTI.explainer.open([{scenario: i.scenario, ingredient: i.ingredient, memo: '', personal: false}], {memories: []})}, '▶ 왜 안 맞을 수 있는지 그림으로') : null);
   },
 };

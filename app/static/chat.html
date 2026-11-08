@@ -23,7 +23,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .askbar button{flex:0 0 auto}
 .auth{max-width:380px;margin:40px auto}
 </style></head><body>
-<nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="/">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="/dev">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
   <form class="card auth stack hidden" id="authForm">
     <h2>로그인</h2>
@@ -49,6 +49,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
   </div>
 </main>
 <script src="/static/common.js"></script>
+<script src="/static/explain.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 

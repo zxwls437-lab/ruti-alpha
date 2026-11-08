@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .config import env
 from .db import get_db, utcnow
 from .models import (AuthSession, ChatMessage, Comment, Consent, Memory, Post, Product, ProductIngredientList, Review,
-                     ReviewVote, ScanResult, User, VanityItem)
+                     ReviewVote, RoutineCheck, ScanResult, SkinLog, User, VanityItem)
 from .plans import plan_info
 from .security import _token_hash, bearer, current_user, hash_password, verify_password
 
@@ -170,6 +170,7 @@ def update_consents(payload: ConsentUpdate, user: User = Depends(current_user), 
     deleted = 0
     if changes.get("sensitive") is False:
         deleted = db.execute(delete(Memory).where(Memory.user_id == user.id)).rowcount or 0
+        db.execute(delete(SkinLog).where(SkinLog.user_id == user.id))  # 피부 컨디션 기록도 민감정보
     db.commit()
     return {"consents": current_consents(db, user), "needs_consent": missing_required(db, user), "deleted_skin_info": deleted}
 
@@ -211,6 +212,8 @@ def export_my_data(user: User = Depends(current_user), db: Session = Depends(get
                     for r in rows(Review, Review.id)],
         "scans": [{"product_name": s.product_name, "source": s.source, "result": json.loads(s.result), "at": s.created_at.isoformat()}
                   for s in rows(ScanResult, ScanResult.id)],
+        "skin_logs": [{"day": g.day, "mood": g.mood, "note": g.note} for g in rows(SkinLog, SkinLog.day)],
+        "routine_checks": [{"day": r.day, "slot": r.slot, "item_id": r.item_id} for r in rows(RoutineCheck, RoutineCheck.id)],
     }
     body = json.dumps(data, ensure_ascii=False, indent=2)
     return Response(body, media_type="application/json",
@@ -232,7 +235,7 @@ def delete_account(payload: DeleteAccountIn, user: User = Depends(current_user),
     my_reviews = list(db.scalars(select(Review.id).where(Review.user_id == uid)))
     if my_reviews:
         db.execute(delete(ReviewVote).where(ReviewVote.review_id.in_(my_reviews)))
-    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review, VanityItem):
+    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review, RoutineCheck, SkinLog, VanityItem):
         db.execute(delete(model).where(model.user_id == uid))
     db.execute(update(Product).where(Product.submitted_by == uid).values(submitted_by=None))
     db.execute(update(Product).where(Product.reviewed_by == uid).values(reviewed_by=None))

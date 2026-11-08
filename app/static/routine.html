@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#4F7D6E"><link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="RUTI">
+<title>RUTI 내 루틴</title><link rel="stylesheet" href="/static/common.css">
+<style>
+.auth{max-width:380px;margin:40px auto}
+.wrap{max-width:640px;margin:0 auto}
+.head h1{margin:0;font-size:24px;font-weight:600}.head .muted{margin:2px 0 0}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:4px;margin:14px 0}
+.seg button{background:none;color:var(--muted);min-height:42px;border-radius:18px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+.progress{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.progress .bar{flex:1;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.progress .bar i{display:block;height:100%;background:var(--brand);border-radius:4px;transition:width .3s}
+.step{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.step:last-child{border-bottom:0}
+.tick{width:34px;height:34px;min-height:34px;flex-shrink:0;border-radius:50%;border:2px solid var(--line);background:var(--card);padding:0;color:#fff;font-size:17px;font-weight:700}
+.tick[aria-pressed="true"]{background:var(--brand);border-color:var(--brand)}
+.step .txt{flex:1;min-width:0}.step .lbl{font-size:12px;color:var(--muted)}.step .nm{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step.done .nm{color:var(--muted);text-decoration:line-through}
+.warnbadge{display:inline-block;margin-top:3px;font-size:12px;color:#A44A3F;background:#FBE7E3;border-radius:10px;padding:2px 8px}
+.more{background:none;color:var(--muted);min-height:40px;width:40px;padding:0;font-size:20px}
+.warn{background:var(--warn-bg);border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.6;margin:0 0 8px}
+.rec{counter-reset:n}.rec-step{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.rec-step:last-child{border-bottom:0}
+.rec-step::before{counter-increment:n;content:counter(n);width:28px;height:28px;flex-shrink:0;border-radius:50%;background:var(--soft);color:var(--brand);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+.rec-step b{font-size:15px}.rec-step p{margin:3px 0;font-size:13.5px;color:var(--muted);line-height:1.55}
+.mine{font-size:13px;margin-top:4px}.mine.no{color:var(--muted)}.mine.yes{color:var(--brand);font-weight:600}
+.moods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.moods button{background:var(--card);border:1px solid var(--line);color:var(--text);min-height:64px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:500;font-size:13px}
+.moods button span{font-size:24px}.moods button[aria-pressed="true"]{border-color:var(--brand);background:var(--soft);color:var(--brand);font-weight:700}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px;text-align:center;font-size:11px;color:var(--muted)}
+.week span{display:block;font-size:20px;line-height:1.4}
+.vlist .row{justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0}
+button.small{min-height:36px;padding:4px 12px;font-size:13px}
+.empty{text-align:center;padding:10px 0}.empty p{color:var(--muted);margin:0 0 10px}
+</style></head><body>
+<nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
+<main>
+  <form class="card auth stack hidden" id="authForm">
+    <h2>로그인</h2>
+    <input name="username" placeholder="아이디" autocomplete="username" required>
+    <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autocomplete="current-password" required>
+    <div class="row"><button type="submit">로그인</button><button type="button" class="ghost" data-signup>회원가입</button></div>
+    <div class="error"></div>
+  </form>
+
+  <div id="app" class="wrap hidden">
+    <div class="head"><h1>내 루틴</h1><p class="muted" id="today"></p></div>
+    <div class="seg" role="group" aria-label="아침 저녁"><button type="button" id="segAm">☀️ 아침</button><button type="button" id="segPm">🌙 저녁</button></div>
+
+    <section class="card">
+      <div class="progress"><div class="bar"><i id="bar"></i></div><span class="muted" id="count"></span></div>
+      <div id="steps"></div>
+    </section>
+
+    <div id="warnings"></div>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">RUTI 추천 루틴</h2><button type="button" class="ghost small" id="skinEdit">내 피부 수정</button></div>
+      <p class="muted" id="recBase" style="margin:6px 0 4px"></p>
+      <div class="rec" id="rec"></div>
+      <div id="recAvoid"></div>
+      <div id="recNotes"></div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">피부 타입·고민에 따른 일반적인 스킨케어 안내예요. 의료 진단이 아니에요.</p>
+    </section>
+
+    <section class="card" id="moodCard">
+      <h2>오늘 피부는 어때요?</h2>
+      <div class="moods" id="moods"></div>
+      <div class="week" id="week"></div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">내 화장대</h2><a href="/scan" class="ghost small" style="text-decoration:none;font-weight:600">+ 제품 추가</a></div>
+      <p class="muted" style="margin:6px 0 4px">성분표를 찍고 '내 화장대에 담기'를 누르면 여기에 들어와요.</p>
+      <div id="vanity" class="vlist"></div>
+    </section>
+  </div>
+</main>
+<script src="/static/common.js"></script>
+<script src="/static/explain.js"></script>
+<script>
+const $ = id => document.getElementById(id), {el, api} = RUTI;
+let data = null, slot = new Date().getHours() < 15 ? 'am' : 'pm';
+const MOODS = [[1, '😣', '안 좋아요'], [2, '😐', '보통이에요'], [3, '😊', '좋아요']];
+
+function setSlot(s){ slot = s; render(); }
+$('segAm').onclick = () => setSlot('am'); $('segPm').onclick = () => setSlot('pm');
+
+function render(){
+  $('segAm').setAttribute('aria-pressed', String(slot === 'am')); $('segPm').setAttribute('aria-pressed', String(slot === 'pm'));
+  const d = new Date(data.today + 'T00:00:00');
+  $('today').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일`;
+  // 내 루틴 + 체크
+  const list = data.routine[slot], done = list.filter(i => i.done).length;
+  $('bar').style.width = list.length ? `${done / list.length * 100}%` : '0';
+  $('count').textContent = list.length ? `${list.length}단계 중 ${done}단계` : '';
+  $('steps').replaceChildren(...(list.length ? list.map(i => {
+    const tick = el('button', {type: 'button', class: 'tick', 'aria-label': `${i.product_name} ${i.done ? '체크 해제' : '발랐어요'}`, onclick: async () => {
+      data = await api('/routine/check', {method: 'POST', body: {item_id: i.id, slot, done: !i.done}}); render();
+    }}, i.done ? '✓' : '');
+    tick.setAttribute('aria-pressed', String(i.done));
+    return el('div', {class: 'step' + (i.done ? ' done' : '')}, tick,
+      el('div', {class: 'txt'}, el('div', {class: 'lbl'}, i.step_label), el('div', {class: 'nm'}, i.product_name),
+        i.conflict ? el('span', {class: 'warnbadge'}, `'${i.conflict}'와 맞지 않을 수 있어요`) : null),
+      el('button', {type: 'button', class: 'more', 'aria-label': i.product_name + ' 설정', onclick: () => editItem(i.id)}, '⋯'));
+  }) : [el('div', {class: 'empty'}, el('p', {}, slot === 'am' ? '아침 루틴이 비어 있어요.' : '저녁 루틴이 비어 있어요.'),
+      el('p', {}, '아래 추천 루틴을 참고해서, 쓰는 제품을 화장대에 담아 보세요.'))]));
+  $('warnings').replaceChildren(...data.warnings.map(w => el('div', {class: 'warn'}, el('b', {}, '⚠️ ' + w.title), el('div', {}, w.detail),
+    w.products.length ? el('div', {class: 'muted', style: 'font-size:12.5px'}, w.products.join(' · ')) : null,
+    w.explainer ? el('button', {type: 'button', class: 'ghost small', style: 'margin-top:6px', onclick: () => RUTI.explainer.open([{scenario: w.explainer, ingredient: '레티놀 + 각질 제거', memo: '', personal: false}], {memories: [], products: w.products})}, '▶ 그림으로 보기') : null)));
+  // 추천
+  const rec = data.recommendation;
+  $('recBase').textContent = rec.needs_skin_info ? '피부 정보를 고르면 나에게 맞춘 루틴을 추천해 드려요. 지금은 기본 루틴이에요.'
+    : `${rec.based_on.map(RUTI.skin.label).join(' · ')} 기준이에요`;
+  $('rec').replaceChildren(...rec[slot].map(st => el('div', {class: 'rec-step'}, el('div', {style: 'flex:1;min-width:0'},
+    el('b', {}, st.title), el('p', {}, st.why),
+    st.look_for.length ? el('div', {class: 'chip-row', style: 'margin:4px 0 0'}, ...st.look_for.map(f => el('span', {class: 'tag'}, f))) : null,
+    el('div', {class: 'mine ' + (st.mine.length ? 'yes' : 'no')}, st.mine.length ? '✓ 내 제품: ' + st.mine.map(m => m.product_name).join(', ') : '아직 이 단계 제품이 없어요')))));
+  $('recAvoid').replaceChildren(...(rec.avoid.length ? [el('p', {class: 'warn', style: 'margin-top:10px'}, '피하면 좋은 성분: ' + rec.avoid.join(', '))] : []));
+  $('recNotes').replaceChildren(...rec.notes.map(n => el('p', {class: 'muted', style: 'margin:6px 0;font-size:13.5px'}, '💡 ' + n)));
+  // 피부 컨디션
+  const todayLog = data.logs.find(l => l.day === data.today);
+  $('moodCard').classList.toggle('hidden', !data.can_log);
+  $('moods').replaceChildren(...MOODS.map(([v, e, t]) => {
+    const b = el('button', {type: 'button', onclick: async () => { data = await api('/routine/log', {method: 'PUT', body: {mood: v}}); render(); }}, el('span', {}, e), t);
+    b.setAttribute('aria-pressed', String(!!todayLog && todayLog.mood === v)); return b;
+  }));
+  const days = [...Array(7)].map((_, k) => { const x = new Date(d); x.setDate(d.getDate() - 6 + k); return x; });
+  $('week').replaceChildren(...days.map(x => {
+    const key = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    const log = data.logs.find(l => l.day === key);
+    return el('div', {}, el('span', {}, log ? MOODS[log.mood - 1][1] : '·'), '일월화수목금토'[x.getDay()]);
+  }));
+  // 화장대
+  $('vanity').replaceChildren(...(data.items.length ? data.items.map(i => el('div', {class: 'row'},
+    el('span', {style: 'min-width:0'}, i.product_name, el('span', {class: 'muted', style: 'margin-left:6px;font-size:12px'}, `${i.step_label} · ${i.slots.map(s => s === 'am' ? '아침' : '저녁').join('·') || '안 씀'}`)),
+    el('button', {type: 'button', class: 'ghost small', style: 'flex:0 0 auto', onclick: () => editItem(i.id)}, '설정'))) : [el('p', {class: 'muted'}, '아직 담은 제품이 없어요.')]));
+}
+
+// 제품 설정: 단계, 아침/저녁, 화장대에서 빼기
+function editItem(id){
+  const it = data.items.find(i => i.id === id); if (!it) return;
+  let step = it.step; const slots = new Set(it.slots);
+  const sheet = el('div', {class: 'sheet', role: 'dialog'});
+  const stepRow = el('div', {class: 'chip-row'}), slotRow = el('div', {class: 'chip-row'});
+  const draw = () => {
+    stepRow.replaceChildren(...Object.entries(data.steps).map(([k, v]) => { const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => { step = k; draw(); }}, v); b.setAttribute('aria-pressed', String(step === k)); return b; }));
+    slotRow.replaceChildren(...[['am', '☀️ 아침'], ['pm', '🌙 저녁']].map(([k, v]) => { const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => { slots.has(k) ? slots.delete(k) : slots.add(k); draw(); }}, v); b.setAttribute('aria-pressed', String(slots.has(k))); return b; }));
+  };
+  draw();
+  const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+  sheet.append(el('div', {class: 'sheet-head'}, el('h2', {}, it.product_name), el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: close}, '×')),
+    el('h3', {}, '어떤 단계예요?'), stepRow, el('h3', {}, '언제 써요?'), slotRow,
+    el('button', {type: 'button', class: 'sheet-save', onclick: async () => {
+      data = await api('/routine/items/' + id, {method: 'PATCH', body: {step, slots: [...slots]}}); close(); render();
+    }}, '저장'),
+    el('button', {type: 'button', class: 'sk-redo', style: 'color:var(--danger)', onclick: async () => {
+      await api('/vanity/' + id, {method: 'DELETE'}); data = await api('/routine/today'); close(); render();
+    }}, '화장대에서 빼기'));
+  const overlay = el('div', {class: 'sheet-overlay', onclick: e => { if (e.target === overlay) close(); }}, sheet);
+  document.body.append(overlay); document.body.style.overflow = 'hidden';
+}
+$('skinEdit').addEventListener('click', () => RUTI.skin.open(async () => { data = await api('/routine/today'); render(); }));
+
+async function start(){
+  let me;
+  try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
+  if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
+  $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
+  data = await api('/routine/today'); render();
+}
+RUTI.bindAuth($('authForm'), start);
+start();
+</script></body></html>

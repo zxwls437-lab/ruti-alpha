@@ -145,8 +145,24 @@ SENSITIVITY_GROUPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
                    "살리실릭애씨드", "베타인살리실레이트", "글루코노락톤", "락토바이오닉애씨드")),
     "retinoid": (("레티놀", "레티노이드", "레티날"),
                  ("레티놀", "레티닐팔미테이트", "레티닐아세테이트", "레티날", "하이드록시피나코론레티노에이트", "레티닐레티노에이트")),
+    "paraben": (("파라벤",), ("메틸파라벤", "에틸파라벤", "프로필파라벤", "부틸파라벤", "아이소부틸파라벤")),
+    # 에센셜 오일은 이름이 많아서 아래 _ESSENTIAL 규칙(식물 이름 + 오일)으로도 잡는다
+    "essential_oil": (("에센셜", "정유", "아로마 오일"), ("라벤더오일", "티트리잎오일", "페퍼민트오일", "유칼립투스잎오일", "로즈마리잎오일")),
 }
 _GROUP_OF = {normalize(n): g for g, (_, names) in SENSITIVITY_GROUPS.items() for n in names}
+_ESSENTIAL = ("라벤더", "티트리", "페퍼민트", "유칼립투스", "로즈마리", "레몬", "베르가모트", "오렌지", "일랑일랑", "시더우드",
+              "제라늄", "로즈", "자몽", "라임", "클로브", "시나몬", "캐모마일", "멘톨")
+
+
+def group_of(name: str) -> str | None:
+    """성분이 속한 '잘 안 맞을 수 있는 성분' 묶음 (향료·알코올·각질 제거·레티놀·파라벤·에센셜 오일)."""
+    for cand in (strip_parens(name), name):
+        key = normalize(cand)
+        if key in _GROUP_OF:
+            return _GROUP_OF[key]
+        if key.endswith("오일") and any(normalize(w) in key for w in _ESSENTIAL) and "씨오일" not in key:
+            return "essential_oil"  # 식물 향 오일 (호호바씨오일 같은 씨앗 기름은 제외)
+    return None
 
 
 def matching_memo(name: str, memories: list[str], name_ko: str = "") -> str:
@@ -156,7 +172,7 @@ def matching_memo(name: str, memories: list[str], name_ko: str = "") -> str:
         low = m.lower()
         if any(n.lower() in low for n in candidates):
             return m
-    group = next((_GROUP_OF[k] for k in (normalize(n) for n in candidates) if k in _GROUP_OF), None)
+    group = next((g for g in (group_of(n) for n in candidates) if g), None)
     if group:
         words = SENSITIVITY_GROUPS[group][0]
         for m in memories:
@@ -260,7 +276,7 @@ def explainer_scenario(name: str, name_ko: str = "") -> str:
     names = [n for n in (name_ko, name) if n]
     groups = groups_of(names)
     for n in names:
-        g = _GROUP_OF.get(normalize(strip_parens(n))) or _GROUP_OF.get(normalize(n))
+        g = group_of(n)
         if g == "retinoid":
             return "retinol"
         if g:

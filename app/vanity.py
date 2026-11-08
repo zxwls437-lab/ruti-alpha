@@ -138,6 +138,8 @@ def remove_from_vanity(item_id: int, user: User = Depends(current_user), db: Ses
     row = db.get(VanityItem, item_id)
     if not row or row.user_id != user.id:
         raise HTTPException(404, "화장대에서 찾을 수 없어요.")
+    from .routine import delete_item_checks  # 순환 import 방지
+    delete_item_checks(db, row.id)
     db.delete(row)
     db.commit()
     return _view(db, user)

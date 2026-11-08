@@ -96,7 +96,7 @@ export function RutiWeb({ tab }: { tab: TabName }) {
         Linking.openURL(req.url).catch(() => {});
         return false;
       }
-      const other = TAB_BY_PATH[url.pathname];
+      const other = TAB_BY_PATH[url.pathname === '/' ? '/home' : url.pathname];
       if (other && other !== tab) {
         router.navigate(other === 'index' ? '/' : `/${other}`);
         return false;

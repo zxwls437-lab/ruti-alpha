@@ -336,3 +336,14 @@ def test_sensitivity_groups_match_picker_choices(client):
     assert v["level"] == "avoid" and "'알코올에 민감해요'라고 알려주셨어요" in v["reasons"][0]
     assert {e["scenario"] for e in v["explainers"]} >= {"alcohol", "exfoliant"}
     assert all(e["memo"] for e in v["explainers"] if e["personal"])
+
+
+def test_paraben_and_essential_oil_groups():
+    assert scan.group_of("메틸파라벤") == "paraben"
+    assert scan.group_of("라벤더오일") == "essential_oil"
+    assert scan.group_of("티트리잎오일(Tea Tree Leaf Oil)") == "essential_oil"
+    assert scan.group_of("호호바씨오일") is None      # 씨앗 기름은 향 오일이 아님
+    assert scan.group_of("세틸알코올") is None
+    assert scan.matching_memo("프로필파라벤", ["파라벤에 민감해요"]) == "파라벤에 민감해요"
+    assert scan.matching_memo("베르가모트열매오일", ["에센셜 오일에 민감해요"]) == "에센셜 오일에 민감해요"
+    assert scan.matching_memo("스쿠알란", ["에센셜 오일에 민감해요"]) == ""

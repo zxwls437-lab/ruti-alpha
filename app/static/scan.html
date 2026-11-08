@@ -47,7 +47,7 @@
 
   <div id="app" class="hidden">
     <div class="hello">
-      <div><span class="muted" id="helloName">안녕하세요</span><h1>오늘 피부는 어떠세요?</h1></div>
+      <div><h1>성분 분석</h1><span class="muted">찍으면 내 피부에 맞는지 알려드려요</span></div>
     </div>
     <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChipsTop" class="chip-row" style="margin:0"></span><b>수정</b></button>
 
@@ -95,7 +95,7 @@
       <button type="button" class="hidden" id="skinAsk" style="width:100%;margin-top:12px">내 피부 정보 고르고 다시 보기</button>
       <p class="notice hidden" id="fromDb" style="margin:12px 0 0"></p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="ghost" id="toggleAll" type="button">전체 성분 보기</button><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
-      <button type="button" id="vanityAdd" style="width:100%;margin-top:8px">내 화장대에 담기</button>
+      <button type="button" id="vanityAdd" style="width:100%;margin-top:8px">내 화장대(루틴)에 담기</button>
       <div class="hidden" id="allIngredients" style="margin-top:12px">
         <div class="chips" id="chips"></div>
         <div id="items"></div>
@@ -117,13 +117,6 @@
         </form>
         <div id="reviewList" class="stack"></div>
       </div>
-    </section>
-
-    <section class="card">
-      <h2>내 화장대</h2>
-      <p class="muted">함께 쓰면 주의할 조합을 알려드려요</p>
-      <div id="vanityChecks" class="stack"></div>
-      <div id="vanityList" style="margin-top:8px"></div>
     </section>
 
     <section class="card">
@@ -222,7 +215,7 @@ function showResult(r){
   $('allIngredients').classList.add('hidden'); $('toggleAll').textContent = `전체 성분 보기 (${s.total}개)`;
   fillDetails(r);
   $('reviewForm').classList.add('hidden'); $('reviewNotices').textContent = ''; loadReviews();
-  $('vanityAdd').textContent = '내 화장대에 담기';
+  $('vanityAdd').textContent = '내 화장대(루틴)에 담기';
   $('resultCard').classList.remove('hidden'); $('resultCard').scrollIntoView({behavior: 'smooth'});
   if (!r.explanation) explainCurrent();
 }
@@ -351,21 +344,10 @@ $('askBtn').addEventListener('click', () => {
   location.href = '/chat';
 });
 
-function renderVanity(v){
-  $('vanityChecks').replaceChildren(...v.checks.map(c => el('div', {class: 'ing ' + (c.level === 'caution' ? 'orange' : '')},
-    el('div', {class: 'head'}, el('strong', {}, c.title), el('span', {class: 't ' + (c.level === 'caution' ? 'orange' : 'gray')}, c.level === 'caution' ? '주의' : '참고')),
-    el('p', {style: 'margin:6px 0 4px;line-height:1.6'}, c.detail), el('div', {class: 'muted'}, c.products.join(' · ')),
-    c.explainer ? el('button', {type: 'button', class: 'ghost explain-btn', style: 'margin-top:8px', onclick: () => openExplainer([{scenario: c.explainer, ingredient: '레티놀 + 각질 제거', memo: '', personal: false}], 0, c.products)}, '▶ 같이 쓰기 그림으로 보기') : null)));
-  if (v.items.length && !v.checks.length) $('vanityChecks').append(el('p', {class: 'muted', style: 'margin:0'}, '함께 쓸 때 주의할 조합은 보이지 않아요.'));
-  $('vanityList').replaceChildren(...v.items.map(it => el('div', {class: 'hist'},
-    el('span', {}, it.product_name, ...Object.values(it.groups).map(g => el('span', {class: 't gray', style: 'margin-left:6px'}, g))),
-    el('button', {class: 'ghost', style: 'padding:2px 10px;flex:0 0 auto', onclick: async () => renderVanity(await api('/vanity/' + it.id, {method: 'DELETE'}))}, '빼기'))));
-  if (!v.items.length) $('vanityList').append(el('p', {class: 'muted'}, '아직 담은 제품이 없어요. 분석 결과에서 "내 화장대에 담기"를 눌러 보세요.'));
-}
-async function loadVanity(){ try { renderVanity(await api('/vanity')); } catch {} }
+
 $('vanityAdd').addEventListener('click', async () => {
   if (!current || !current.id) return;
-  try { renderVanity(await api('/vanity', {method: 'POST', body: {scan_id: current.id}})); $('vanityAdd').textContent = '화장대에 담았어요 ✓'; }
+  try { await api('/vanity', {method: 'POST', body: {scan_id: current.id}}); $('vanityAdd').textContent = '담았어요 ✓ 루틴 탭에서 볼 수 있어요'; }
   catch (e) { $('vanityAdd').textContent = e.message; }
 });
 
@@ -382,8 +364,7 @@ async function start(){
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
-  $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
-  loadHistory(); loadVanity(); loadSkin();
+  loadHistory(); loadSkin();
   RUTI.skin.promptOnce(me, loadSkin);
 }
 $('logout').addEventListener('click', e => { e.preventDefault(); RUTI.logout(); });
