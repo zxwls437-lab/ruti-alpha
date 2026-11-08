@@ -477,7 +477,7 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
         recent = db.scalars(select(ChatMessage).where(ChatMessage.user_id == user.id).order_by(ChatMessage.id.desc()).limit(turns)).all()
         history = [{"role": m.role, "content": m.content} for m in reversed(recent)]
         review_stats = reviews.reviews_in_text(db, user, message)
-        result = ai.generate_answer(message, memories[::-1], products, history, ingredients, review_stats)
+        result = ai.generate_answer(message, memories[::-1], products, history, ingredients, review_stats, user.name or "")
         status_code = "OK" if result.ok else "AI_UNAVAILABLE"
         if result.urgent:
             # 단어 목록이 놓친 위험 신호를 AI가 잡은 경우: 제품 추천 없이 진료 안내로 바꾼다
@@ -490,9 +490,19 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
         db.add(ChatMessage(user_id=user.id, role="assistant", content=result.answer, product_ids=_ids_to_str(result.product_ids)))
         db.commit()
 
+    # 대화에서 새로 알려준 피부 정보는 '내 피부 정보'에 자동 저장 (민감정보 동의한 경우만) → 분석·판정에도 반영
+    saved = []
+    if status_code == "OK" and result.new_memories and account.has_sensitive_consent(db, user):
+        room = env_int("RUTI_MAX_MEMORIES", 50) - (db.scalar(select(func.count()).select_from(Memory).where(Memory.user_id == user.id)) or 0)
+        for text in result.new_memories[:max(0, room)]:
+            db.add(Memory(user_id=user.id, content=text))
+            saved.append(text)
+        db.commit()
+
     cited = [db.get(Product, pid) for pid in result.product_ids]
     return {
         "status": status_code,
+        "saved_memories": saved,
         "answer": result.answer,
         "engine": result.engine,
         "product_ids": result.product_ids,

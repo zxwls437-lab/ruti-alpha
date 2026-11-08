@@ -133,6 +133,39 @@ def classify_restriction(text: str) -> str | None:
     return "foreign"
 
 
+# ---------- 피부 정보 ↔ 성분 묶음 ----------
+# "알코올에 민감해요"처럼 묶음 이름으로 적어도, 그 묶음에 속한 성분을 모두 '내 피부 정보와 맞지 않음'으로 잡는다.
+# 이름이 정확히 같은 성분만 넣는다 (예: 세틸알코올은 보습 성분이라 '알코올'에 넣지 않음).
+SENSITIVITY_GROUPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    # 묶음: (피부 정보에서 찾을 말, 성분 이름)
+    "fragrance": (("향료", "향에"), ("향료", "리모넨", "리날룰", "시트로넬올", "제라니올", "유제놀", "쿠마린", "시트랄")),
+    "alcohol": (("알코올", "알콜", "에탄올"), ("에탄올", "변성알코올", "알코올", "에틸알코올", "알코올데낫")),
+    "exfoliant": (("각질 제거", "각질제거", "aha", "bha", "pha", "필링"),
+                  ("글라이콜릭애씨드", "락틱애씨드", "만델릭애씨드", "말릭애씨드", "타타릭애씨드", "시트릭애씨드",
+                   "살리실릭애씨드", "베타인살리실레이트", "글루코노락톤", "락토바이오닉애씨드")),
+    "retinoid": (("레티놀", "레티노이드", "레티날"),
+                 ("레티놀", "레티닐팔미테이트", "레티닐아세테이트", "레티날", "하이드록시피나코론레티노에이트", "레티닐레티노에이트")),
+}
+_GROUP_OF = {normalize(n): g for g, (_, names) in SENSITIVITY_GROUPS.items() for n in names}
+
+
+def matching_memo(name: str, memories: list[str], name_ko: str = "") -> str:
+    """이 성분과 맞지 않는다고 적은 피부 정보 (성분 이름을 직접 적었거나, 성분이 속한 묶음 이름을 적은 경우)."""
+    candidates = [n for n in {name_ko, strip_parens(name), name} if len(n) >= 2]
+    for m in memories:
+        low = m.lower()
+        if any(n.lower() in low for n in candidates):
+            return m
+    group = next((_GROUP_OF[k] for k in (normalize(n) for n in candidates) if k in _GROUP_OF), None)
+    if group:
+        words = SENSITIVITY_GROUPS[group][0]
+        for m in memories:
+            low = m.lower()
+            if any(w in low for w in words):
+                return m
+    return ""
+
+
 def analyze(db: Session, names: list[str], memories: list[str]) -> dict:
     idx = index.get(db)
     matches = [(name, *idx.lookup(name)) for name in names]
@@ -151,10 +184,8 @@ def analyze(db: Session, names: list[str], memories: list[str]) -> dict:
             flags.append("kr_limit")
         elif level == "foreign":
             flags.append("foreign_regulated")
-        if ing and memory_text:
-            names_to_check = {ing.name_ko.lower(), strip_parens(name).lower()}
-            if any(len(n) >= 2 and n in memory_text for n in names_to_check):
-                flags.append("memory_conflict")
+        if ing and memory_text and matching_memo(name, memories, ing.name_ko):
+            flags.append("memory_conflict")
         if kind == "fuzzy":
             flags.append("check_spelling")
         items.append({
@@ -193,7 +224,8 @@ def build_verdict(result: dict, memories: list[str], readability: str = "clear")
     conflicts, bans, limits = names("memory_conflict"), names("kr_ban"), names("kr_limit")
 
     for name in conflicts[:2]:
-        memo = next((m for m in memories if any(k in m for k in (strip_parens(name), name))), "")
+        ko = next(((i.get("ingredient") or {}).get("name_ko", "") for i in items if i["input"] == name), "")
+        memo = matching_memo(name, memories, ko)
         reasons.append(f"{name}{_josa(name, '이', '가')} 들어 있어요. '{memo}'라고 알려주셨어요." if memo else f"{name}{_josa(name, '이', '가')} 들어 있어요. 내 피부 정보와 맞지 않아요.")
     if bans:
         reasons.append(f"국내 사용금지 성분과 이름이 같은 성분({', '.join(bans[:3])})이 있어요. 글자를 잘못 읽었을 수도 있으니 성분표를 확인해 주세요.")
@@ -223,16 +255,23 @@ def build_verdict(result: dict, memories: list[str], readability: str = "clear")
 _ALCOHOL = {"에탄올", "변성알코올", "알코올", "에틸알코올"}
 
 
-def explainer_scenario(name: str) -> str:
+def explainer_scenario(name: str, name_ko: str = "") -> str:
     from .vanity import groups_of  # 순환 import 방지
-    groups = groups_of([name])
+    names = [n for n in (name_ko, name) if n]
+    groups = groups_of(names)
+    for n in names:
+        g = _GROUP_OF.get(normalize(strip_parens(n))) or _GROUP_OF.get(normalize(n))
+        if g == "retinoid":
+            return "retinol"
+        if g:
+            return g
     if "fragrance" in groups:
         return "fragrance"
     if "retinoid" in groups:
         return "retinol"
     if groups.keys() & {"aha", "bha", "pha"}:
         return "exfoliant"
-    if normalize(strip_parens(name)) in _ALCOHOL or normalize(name) in _ALCOHOL:
+    if any(normalize(strip_parens(n)) in _ALCOHOL or normalize(n) in _ALCOHOL for n in names):
         return "alcohol"
     return "generic"
 
@@ -241,8 +280,8 @@ def build_explainers(items: list[dict], memories: list[str], level: str) -> list
     out: list[dict] = []
     seen: set[tuple[str, str]] = set()
 
-    def add(scenario: str, name: str, memo: str, personal: bool) -> None:
-        label = strip_parens(name) or name
+    def add(scenario: str, name: str, memo: str, personal: bool, ko: str = "") -> None:
+        label = ko or strip_parens(name) or name
         if (scenario, label) in seen:
             return
         seen.add((scenario, label))
@@ -251,8 +290,9 @@ def build_explainers(items: list[dict], memories: list[str], level: str) -> list
     for it in items:
         if "memory_conflict" in it["flags"]:
             name = it["input"]
-            memo = next((m for m in memories if any(k and k in m for k in (strip_parens(name), name))), "")
-            add(explainer_scenario(name), name, memo, True)
+            ko = (it.get("ingredient") or {}).get("name_ko", "")
+            memo = matching_memo(name, memories, ko)
+            add(explainer_scenario(name, ko), name, memo, True, ko)
     limit = next((it for it in items if "kr_limit" in it["flags"]), None)
     if limit:
         add("limit", limit["input"], "", False)

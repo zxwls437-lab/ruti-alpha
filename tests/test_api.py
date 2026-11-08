@@ -267,3 +267,35 @@ def test_legal_pages_public_and_filled(client, monkeypatch):
     monkeypatch.setenv("RUTI_LEGAL_DRAFT", "false")
     assert "초안" not in client.get("/terms").text
     assert client.get("/legal/legal.css").status_code == 200
+
+
+def test_conversation_saves_new_skin_info_from_chat(client, monkeypatch):
+    headers = signup(client, "chatmemo1")
+    captured = {}
+
+    def fake_post(url, json, headers, timeout):
+        captured["body"] = json
+        content = ('{"answer": "향료 없는 보습제를 써 보세요.", "product_ids": [], "urgent": false,'
+                   ' "new_memories": ["건성 피부", "향료에 민감해요", "향료에 민감해요", "x"]}')
+        return FakeResponse(200, {"choices": [{"message": {"content": content}}]})
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(ai.httpx, "post", fake_post)
+    client.post("/memory", headers=headers, json={"content": "건성 피부"})
+    r = client.post("/conversation", headers=headers, json={"message": "건성이고 향료 쓰면 빨개져요"}).json()
+    # 이미 있던 '건성 피부', 중복, 너무 짧은 글은 빼고 새 정보만 저장
+    assert r["saved_memories"] == ["향료에 민감해요"]
+    mems = [m["content"] for m in client.get("/memory", headers=headers).json()["memories"]]
+    assert mems == ["건성 피부", "향료에 민감해요"]
+    # 이름으로 부르도록 이름이 프롬프트에 들어감
+    assert "테스터" in " ".join(m["content"] for m in captured["body"]["messages"])
+    # 민감정보 동의를 철회하면 자동 저장하지 않음
+    client.put("/me/consents", headers=headers, json={"consents": {"sensitive": False}})
+    client.post("/conversation", headers=headers, json={"message": "지성으로 바뀐 것 같아요"})
+    assert client.get("/memory", headers=headers).status_code == 403 or \
+        client.get("/memory", headers=headers).json()["memories"] == []
+
+
+def test_clean_new_memories():
+    assert ai.clean_new_memories(["  지성  피부 ", "건성", None, "가" * 50], ["건성 피부"]) == ["지성 피부"]
+    assert ai.clean_new_memories("not a list", []) == []

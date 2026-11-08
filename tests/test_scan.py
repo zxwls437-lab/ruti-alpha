@@ -318,3 +318,21 @@ def test_scan_returns_verdict_and_explain_endpoint(client, monkeypatch):
     # 저장되어 기록에서 다시 볼 수 있음
     assert client.get(f"/scan/{r['id']}", headers=h).json()["explanation"]["points"][0].startswith("글리세린")
     assert client.post(f"/scan/{r['id']}/explain", headers=signup(client, "other")).status_code == 404
+
+
+def test_sensitivity_groups_match_picker_choices(client):
+    seed_ingredients()
+    with SessionLocal() as db:
+        db.add_all([Ingredient(name_ko="에탄올", name_en="Alcohol"), Ingredient(name_ko="세틸알코올", name_en="Cetyl Alcohol"),
+                    Ingredient(name_ko="글라이콜릭애씨드", name_en="Glycolic Acid")])
+        db.commit()
+    mems = ["알코올에 민감해요", "각질 제거 성분(AHA·BHA)에 민감해요", "향료에 민감해요"]
+    with SessionLocal() as db:
+        r = scan.analyze(db, ["정제수", "에탄올", "세틸알코올", "Glycolic Acid", "Fragrance", "레티놀"], mems)
+    flagged = {i["input"] for i in r["items"] if "memory_conflict" in i["flags"]}
+    # 세틸알코올(보습 성분)은 '알코올'이어도 제외, 영어로 적힌 성분도 묶음으로 잡음
+    assert flagged == {"에탄올", "Glycolic Acid", "Fragrance"}
+    v = scan.build_verdict(r, mems)
+    assert v["level"] == "avoid" and "'알코올에 민감해요'라고 알려주셨어요" in v["reasons"][0]
+    assert {e["scenario"] for e in v["explainers"]} >= {"alcohol", "exfoliant"}
+    assert all(e["memo"] for e in v["explainers"] if e["personal"])
