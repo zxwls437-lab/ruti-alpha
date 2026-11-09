@@ -71,6 +71,12 @@
       <p class="fine">사진은 분석 후 바로 지워져요 · <a href="/privacy#p2">자세히</a></p>
     </section>
 
+    <section class="card">
+      <h2 style="margin:0 0 8px">제품 이름으로 찾기</h2>
+      <form id="findForm" class="row" style="gap:8px"><input name="q" placeholder="예: 선크림, 브랜드 이름" minlength="2" maxlength="60" required><button>찾기</button></form>
+      <div id="findList" style="margin-top:6px"></div>
+    </section>
+
     <section class="card hidden" id="pickCard">
       <h2>사진에 제품이 여러 개 있어요</h2>
       <p class="muted">어떤 제품을 볼까요?</p>
@@ -95,6 +101,7 @@
       <button type="button" class="hidden" id="skinAsk" style="width:100%;margin-top:12px">내 피부 정보 고르고 다시 보기</button>
       <p class="notice hidden" id="fromDb" style="margin:12px 0 0"></p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="ghost" id="toggleAll" type="button">전체 성분 보기</button><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
+      <button type="button" class="ghost" id="usageBtn" style="width:100%;margin-top:8px">▶ 이 제품 사용법 보기</button>
       <button type="button" id="vanityAdd" style="width:100%;margin-top:8px">내 화장대(루틴)에 담기</button>
       <div class="hidden" id="allIngredients" style="margin-top:12px">
         <div class="chips" id="chips"></div>
@@ -127,6 +134,7 @@
 </main>
 <script src="/static/common.js"></script>
 <script src="/static/explain.js"></script>
+<script src="/static/usage.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let imageData = null, current = null;
@@ -349,6 +357,31 @@ $('vanityAdd').addEventListener('click', async () => {
   catch (e) { $('vanityAdd').textContent = e.message; }
 });
 
+// ---------- 제품 이름으로 찾기 (식약처 기능성 제품 + 공유된 전성분) ----------
+$('findForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = e.target.q.value.trim(); if (q.length < 2) return;
+  $('findList').replaceChildren(el('p', {class: 'muted'}, '찾는 중…'));
+  try {
+    const {products} = await api('/products/find?q=' + encodeURIComponent(q));
+    $('findList').replaceChildren(...(products.length ? products.map(p => el('button', {type: 'button', class: 'hist', onclick: () => productSheet(p)},
+      el('span', {class: 'hist-name'}, [p.brand, p.name].filter(Boolean).join(' · ')),
+      el('span', {class: 't ' + (p.ingredients.length ? 'green' : 'gray')}, p.ingredients.length ? '성분 있음' : (p.functions ? '기능성' : '정보')))) :
+      [el('p', {class: 'muted'}, '찾는 제품이 없어요. 뒷면 성분표를 찍어 주시면 다음 분들도 찾을 수 있어요.')]));
+  } catch (err) { $('findList').replaceChildren(el('p', {class: 'error'}, err.message)); }
+});
+function productSheet(p){
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.brand || ''),
+    p.functions ? el('p', {style: 'margin:0 0 6px'}, '✨ ' + p.functions) : '',
+    p.ingredients.length ? el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, `전성분 ${p.ingredients.length}개가 등록돼 있어요`)
+      : el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, '아직 전성분이 없어요. 뒷면을 찍으면 내 피부에 맞는지 볼 수 있어요.'),
+    el('button', {type: 'button', class: 'sheet-save', onclick: () => RUTI.usage.open({name: p.name, brand: p.brand, usage: p.usage, functions: p.functions})}, '▶ 사용법 보기'),
+    p.ingredients.length ? el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: async () => {
+      s.close(); await run('/scan/text', {text: p.ingredients.join(', '), product_name: [p.brand, p.name].filter(Boolean).join(' ')}, $('findForm').querySelector('button'));
+    }}, '내 피부에 맞는지 보기') : el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: () => { s.close(); $('file').click(); }}, '뒷면 찍기'),
+    el('button', {type: 'button', class: 'sk-redo', onclick: () => s.close()}, '닫기'));
+}
+$('usageBtn').addEventListener('click', () => current && RUTI.usage.open({name: current.product_name || '이 제품'}));
 async function loadHistory(){
   const {scans} = await api('/scan/history');
   const V = {good: ['green', '잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '맞지 않을 수 있어요']};

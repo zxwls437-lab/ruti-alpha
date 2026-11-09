@@ -1,4 +1,5 @@
 """RUTI API 서버: 회원/로그인, 사용자 기억, 제품 승인 워크플로, AI 상담, 화면(대시보드·상담·관리자)."""
+import json
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,7 +14,8 @@ from sqlalchemy.orm import Session
 from . import account, admin_users, ai, blocks, community, datasync, legal, plans, retrieval, reviews, routine, scan, vanity
 from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
-from .models import PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product, User
+from .models import (PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product,
+                     ProductIngredientList, User)
 from .security import bearer, create_session, current_user, hash_password, limiter, require_admin, revoke_session, verify_password
 from .status import STATUS
 
@@ -234,7 +236,7 @@ def admin_page():
 
 @app.get("/static/{name}", include_in_schema=False)
 def static_file(name: str):
-    if name not in {"common.css", "common.js", "explain.js", "offline.html"}:
+    if name not in {"common.css", "common.js", "explain.js", "usage.js", "offline.html"}:
         raise HTTPException(404)
     return FileResponse(STATIC / name)
 
@@ -392,6 +394,41 @@ def search_ingredients(q: str, limit: int = 20, _user: User = Depends(current_us
                        Ingredient.synonyms.ilike(pattern, escape="\\")))
             .order_by(func.length(Ingredient.name_ko), Ingredient.id).limit(max(1, min(limit, 100))))
     return {"ingredients": [i.to_public() for i in db.scalars(stmt).all()]}
+
+
+def _desc_line(desc: str, head: str) -> str:
+    return next((line[len(head):].strip() for line in (desc or "").splitlines() if line.startswith(head)), "")
+
+
+@app.get("/products/find", tags=["제품"])
+def find_products(q: str, limit: int = 20, _user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """사용자용 제품 찾기: 제품명·브랜드로 식약처 기능성 제품 + 직접 등록 제품 + 전성분이 공유된 제품을 찾는다."""
+    from .scan import name_key
+    q = q.strip()
+    if len(q) < 2:
+        return {"products": []}
+    limit = max(1, min(limit, 50))
+    pattern = _like(q)
+    prods = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED,
+                                             or_(Product.name.ilike(pattern, escape="\\"), Product.brand.ilike(pattern, escape="\\")))
+                       .order_by(func.length(Product.name), Product.id).limit(limit)).all()
+    key = name_key("", q)
+    lists = db.scalars(select(ProductIngredientList).where(ProductIngredientList.name_key.contains(key))
+                       .order_by(ProductIngredientList.confirmations.desc()).limit(limit)).all() if len(key) >= 2 else []
+    by_key = {name_key(l.brand, l.name): l for l in lists}
+    out, used = [], set()
+    for p in prods:
+        lst = by_key.get(name_key(p.brand, p.name)) or by_key.get(name_key("", p.name))
+        if lst:
+            used.add(lst.id)
+        out.append({"id": p.id, "name": p.name, "brand": p.brand, "source": p.source,
+                    "functions": _desc_line(p.description, "기능:"), "usage": _desc_line(p.description, "사용법:"),
+                    "ingredients": json.loads(lst.ingredients) if lst else []})
+    for lst in lists:
+        if lst.id not in used:
+            out.append({"id": None, "name": lst.name, "brand": lst.brand, "source": "shared", "functions": "", "usage": "",
+                        "ingredients": json.loads(lst.ingredients)})
+    return {"products": out[:limit]}
 
 
 @app.get("/products/{product_id}", tags=["제품"])

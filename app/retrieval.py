@@ -6,7 +6,7 @@ import time
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from .models import PRODUCT_APPROVED, SOURCE_MANUAL, Ingredient, Product
+from .models import PRODUCT_APPROVED, SOURCE_MANUAL, SOURCE_MFDS, Ingredient, Product
 
 # 한국어 조사·어미 (긴 것부터 떼어냄)
 _PARTICLES = sorted(["이랑", "에서", "으로", "에게", "한테", "까지", "부터", "처럼", "인데", "인가요", "인가", "이에요", "예요", "이야",
@@ -38,8 +38,14 @@ def candidate_products(db: Session, message: str, memories: list[str], limit: in
     cols = (Product.name, Product.brand, Product.category, Product.key_ingredients, Product.description, Product.skin_types)
     rows: list[Product] = []
     if kws:
+        # 직접 등록(검증)한 제품은 설명까지 넓게 찾고, 식약처 기능성 제품(약 20만 개)은 사용자가 제품명·브랜드를
+        # 말했을 때만 찾는다 (설명의 '피부' 같은 흔한 말로 오래된 제품이 마구 추천되지 않게)
         cond = or_(*(c.ilike(like(k), escape="\\") for k in kws for c in cols))
-        rows = list(db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, cond).limit(300)).all())
+        rows = list(db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source != SOURCE_MFDS, cond).limit(300)).all())
+        named = [k for k in kws if len(k) >= 2]
+        if named:
+            name_cond = or_(*(c.ilike(like(k), escape="\\") for k in named for c in (Product.name, Product.brand)))
+            rows += list(db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, name_cond).limit(50)).all())
     if len(rows) < limit:
         # 직접 등록한(검증한) 제품은 키워드가 안 맞아도 후보로 보여준다
         seen = {r.id for r in rows}

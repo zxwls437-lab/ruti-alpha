@@ -30,7 +30,8 @@
 .week span{display:block;font-size:20px;line-height:1.4}
 .vlist .row{justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0}
 button.small{min-height:36px;padding:4px 12px;font-size:13px}
-.empty{text-align:center;padding:10px 0}.empty p{color:var(--muted);margin:0 0 10px}
+.empty{text-align:center;padding:10px 0}
+.linkish{background:none;color:var(--brand);padding:4px 0;min-height:36px;font-weight:600;font-size:13.5px}.empty p{color:var(--muted);margin:0 0 10px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -77,6 +78,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 </main>
 <script src="/static/common.js"></script>
 <script src="/static/explain.js"></script>
+<script src="/static/usage.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let data = null, slot = new Date().getHours() < 15 ? 'am' : 'pm';
@@ -114,7 +116,8 @@ function render(){
   $('rec').replaceChildren(...rec[slot].map(st => el('div', {class: 'rec-step'}, el('div', {style: 'flex:1;min-width:0'},
     el('b', {}, st.title), el('p', {}, st.why),
     st.look_for.length ? el('div', {class: 'chip-row', style: 'margin:4px 0 0'}, ...st.look_for.map(f => el('span', {class: 'tag'}, f))) : null,
-    el('div', {class: 'mine ' + (st.mine.length ? 'yes' : 'no')}, st.mine.length ? '✓ 내 제품: ' + st.mine.map(m => m.product_name).join(', ') : '아직 이 단계 제품이 없어요')))));
+    el('div', {class: 'mine ' + (st.mine.length ? 'yes' : 'no')}, st.mine.length ? '✓ 내 제품: ' + st.mine.map(m => m.product_name).join(', ') : '아직 이 단계 제품이 없어요'),
+    el('button', {type: 'button', class: 'linkish', onclick: () => RUTI.usage.open({category: usageKind(st)})}, '▶ 이렇게 발라요')))));
   $('recAvoid').replaceChildren(...(rec.avoid.length ? [el('p', {class: 'warn', style: 'margin-top:10px'}, '피하면 좋은 성분: ' + rec.avoid.join(', '))] : []));
   $('recNotes').replaceChildren(...rec.notes.map(n => el('p', {class: 'muted', style: 'margin:6px 0;font-size:13.5px'}, '💡 ' + n)));
   // 피부 컨디션
@@ -136,6 +139,14 @@ function render(){
     el('button', {type: 'button', class: 'ghost small', style: 'flex:0 0 auto', onclick: () => editItem(i.id)}, '설정'))) : [el('p', {class: 'muted'}, '아직 담은 제품이 없어요.')]));
 }
 
+// 추천 단계 → 사용법 애니메이션 종류
+function usageKind(st){
+  const t = st.title;
+  if (t.includes('아이크림')) return 'eye';
+  if (t.includes('레티놀')) return 'retinol';
+  if (t.includes('BHA') || t.includes('각질')) return 'exfoliant';
+  return {cleanser: 'cleanser', toner: 'toner', essence: 'serum', serum: 'serum', cream: 'cream', sunscreen: 'sunscreen'}[st.step] || 'cream';
+}
 // 제품 설정: 단계, 아침/저녁, 화장대에서 빼기
 function editItem(id){
   const it = data.items.find(i => i.id === id); if (!it) return;
@@ -149,6 +160,7 @@ function editItem(id){
   draw();
   const close = () => { overlay.remove(); document.body.style.overflow = ''; };
   sheet.append(el('div', {class: 'sheet-head'}, el('h2', {}, it.product_name), el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: close}, '×')),
+    el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand);margin-top:6px', onclick: () => RUTI.usage.open({name: it.product_name})}, '▶ 사용법 보기'),
     el('h3', {}, '어떤 단계예요?'), stepRow, el('h3', {}, '언제 써요?'), slotRow,
     el('button', {type: 'button', class: 'sheet-save', onclick: async () => {
       data = await api('/routine/items/' + id, {method: 'PATCH', body: {step, slots: [...slots]}}); close(); render();

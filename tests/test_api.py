@@ -324,3 +324,20 @@ def test_app_info_public(client, monkeypatch):
     monkeypatch.setenv("RUTI_CONTACT_EMAIL", "help@example.com")
     r = client.get("/app-info").json()
     assert r["contact_email"] == "help@example.com" and r["version"] and r["terms_version"]
+
+
+def test_find_products_by_name(client):
+    from app.db import SessionLocal
+    from app.models import Product, ProductIngredientList
+    headers = signup(client, "finder1")
+    with SessionLocal() as db:
+        db.add(Product(name="데일리 선크림", brand="B사", category="기능성화장품", status="approved", source="mfds",
+                       description="[식약처 기능성화장품 보고품목]\n기능: 자외선 차단 SPF50+ PA++++\n사용법: 외출 15분 전 바른다"))
+        db.add(ProductIngredientList(brand="B사", name="데일리 선크림", name_key="b사데일리선크림", ingredients='["정제수", "징크옥사이드", "글리세린"]', list_hash="x"))
+        db.add(ProductIngredientList(brand="", name="촉촉 토너", name_key="촉촉토너", ingredients='["정제수", "글리세린", "판테놀"]', list_hash="y"))
+        db.commit()
+    r = client.get("/products/find?q=선크림", headers=headers).json()["products"]
+    assert r[0]["name"] == "데일리 선크림" and "SPF50+" in r[0]["functions"] and "15분" in r[0]["usage"]
+    assert r[0]["ingredients"][:2] == ["정제수", "징크옥사이드"]
+    assert client.get("/products/find?q=촉촉", headers=headers).json()["products"][0]["source"] == "shared"
+    assert client.get("/products/find?q=a", headers=headers).json()["products"] == []
