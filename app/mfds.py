@@ -30,9 +30,10 @@ DATASETS = {
 DEFAULT_URLS = {
     "ingredient": "https://apis.data.go.kr/1471000/CsmtcsIngdCpntInfoService01",
     "restricted": "https://apis.data.go.kr/1471000/CsmtcsUseRstrcInfoService",
-    "functional_report": "https://apis.data.go.kr/1471000/FtnltCosmRptPrdlstInfoService01",
-    "functional_review": "https://apis.data.go.kr/1471057/FtnltCosmSrngPrdlstInfoService05",
-    "cosmetics_info": "https://apis.data.go.kr/1471000/CsmtcsMfcrtrInfoService02",
+    # 아래 셋은 오퍼레이션 이름이 서비스 이름과 달라서 끝까지 적는다 (data.go.kr 상세기능에서 확인, 2026-11-09)
+    "functional_report": "https://apis.data.go.kr/1471000/FtnltCosmRptPrdlstInfoService01/getRptPrdlstInq01",
+    "functional_review": "https://apis.data.go.kr/1471057/FtnltCosmSrngPrdlstInfoService05/getSrngPrdlstInq05",
+    "cosmetics_info": "https://apis.data.go.kr/1471000/CsmtcsMfcrtrInfoService02/getCsmtcsMfcrtrInfoList02",
 }
 
 # 필드 후보 (대문자 비교). 앞에 있을수록 우선.
