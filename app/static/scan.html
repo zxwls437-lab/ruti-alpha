@@ -365,13 +365,13 @@ $('findForm').addEventListener('submit', async e => {
   try {
     const {products} = await api('/products/find?q=' + encodeURIComponent(q));
     $('findList').replaceChildren(...(products.length ? products.map(p => el('button', {type: 'button', class: 'hist', onclick: () => productSheet(p)},
-      el('span', {class: 'hist-name'}, [p.brand, p.name].filter(Boolean).join(' · ')),
+      el('span', {class: 'hist-name'}, p.source === 'mfds' ? p.name : [p.brand, p.name].filter(Boolean).join(' · ')),
       el('span', {class: 't ' + (p.ingredients.length ? 'green' : 'gray')}, p.ingredients.length ? '성분 있음' : (p.functions ? '기능성' : '정보')))) :
       [el('p', {class: 'muted'}, '찾는 제품이 없어요. 뒷면 성분표를 찍어 주시면 다음 분들도 찾을 수 있어요.')]));
   } catch (err) { $('findList').replaceChildren(el('p', {class: 'error'}, err.message)); }
 });
 function productSheet(p){
-  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.brand || ''),
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.source === 'mfds' ? (p.brand ? '식약처 신고 회사: ' + p.brand : '') : (p.brand || '')),
     p.functions ? el('p', {style: 'margin:0 0 6px'}, '✨ ' + p.functions) : '',
     p.ingredients.length ? el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, `전성분 ${p.ingredients.length}개가 등록돼 있어요`)
       : el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, '아직 전성분이 없어요. 뒷면을 찍으면 내 피부에 맞는지 볼 수 있어요.'),

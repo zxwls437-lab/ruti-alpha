@@ -50,6 +50,24 @@ def init_db() -> None:
 
     Base.metadata.create_all(engine)
     add_missing_columns()
+    add_search_indexes()
+
+
+def add_search_indexes() -> None:
+    """PostgreSQL이면 제품명·회사명 부분 검색(ILIKE '%..%')을 빠르게 하는 trigram 색인을 만든다 (제품 약 20만 개)."""
+    import logging
+
+    from sqlalchemy import text
+
+    if engine.dialect.name != "postgresql":
+        return
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_products_name_trgm ON products USING gin (name gin_trgm_ops)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_products_brand_trgm ON products USING gin (brand gin_trgm_ops)"))
+    except Exception:  # noqa: BLE001  (색인이 없어도 검색은 된다, 느릴 뿐)
+        logging.getLogger("ruti").exception("검색 색인 만들기 실패")
 
 
 def add_missing_columns() -> None:
