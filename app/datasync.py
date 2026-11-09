@@ -73,28 +73,33 @@ def replace_ingredients(db: Session, rows: list[dict]) -> int:
 
 # ---------- 식약처에서 직접 받기 (백그라운드) ----------
 
-def _run_sync() -> None:
+def _run_sync(products_only: bool = False) -> None:
     try:
         with SessionLocal() as db:
-            for d in ("ingredient", "restricted"):
+            for d in (() if products_only else ("ingredient", "restricted")):
                 saved = 0
                 for _page, total, items in mfds.iter_pages(d, 100):
                     saved += mfds.save_records(db, d, items)
                     job["message"] = f"{mfds.DATASETS[d][1]} {saved:,} / {total:,}건 받는 중"
-            job["message"] = "성분 사전으로 정리하는 중"
-            n = mfds.build_ingredients(db)
+            n = 0
+            if not products_only:
+                job["message"] = "성분 사전으로 정리하는 중"
+                n = mfds.build_ingredients(db)
             n_prod = 0
             for d in ("functional_report", "functional_review"):
-                if env(mfds.DATASETS[d][0]):  # 주소(상세기능)가 설정된 기능성 제품 데이터만
+                if products_only or env(mfds.DATASETS[d][0]):  # 기본 주소로도 시도 (실패해도 성분 사전은 유지)
                     try:
-                        for _page, _total, items in mfds.iter_pages(d, 100):
-                            mfds.save_records(db, d, items)
+                        saved = 0
+                        for _page, total, items in mfds.iter_pages(d, 100):
+                            saved += mfds.save_records(db, d, items)
+                            job["message"] = f"{mfds.DATASETS[d][1]} {saved:,} / {total:,}건 받는 중"
                     except mfds.MfdsError as e:
                         log.warning("기능성 제품 %s 실패: %s", d, e)
+                        job["message"] = f"{mfds.DATASETS[d][1]} 실패: {e}"
             n_prod = mfds.build_products(db)
         from .scan import index
         index.reset()
-        job.update(state="done", message=f"완료: 성분 {n:,}개, 기능성 제품 {n_prod:,}개")
+        job.update(state="done", message=(f"완료: 기능성 제품 {n_prod:,}개" if products_only else f"완료: 성분 {n:,}개, 기능성 제품 {n_prod:,}개"))
     except mfds.MfdsError as e:
         job.update(state="error", message=f"식약처 연결 실패: {e}. 해외 서버에서 막혔다면 '파일로 올리기'를 써 주세요.")
     except Exception as e:  # noqa: BLE001 - 관리자에게 원인을 보여주고 기록
@@ -121,15 +126,29 @@ def status(_admin: User = Depends(require_admin), db: Session = Depends(get_db))
     }
 
 
+@router.post("/mfds-probe")
+def mfds_probe(_admin: User = Depends(require_admin)):
+    """데이터셋마다 첫 페이지만 받아 연결과 필드 이름을 확인한다 (저장 안 함)."""
+    out = {}
+    for d in mfds.DATASETS:
+        try:
+            items, total = mfds.fetch_page(d, 1, 2)
+            out[d] = {"ok": True, "total": total, "fields": sorted(items[0].keys()) if items else [],
+                      "url": mfds.dataset_url(d).split("?")[0]}
+        except mfds.MfdsError as e:
+            out[d] = {"ok": False, "error": str(e)[:300], "url": mfds.dataset_url(d).split("?")[0] if d in mfds.DEFAULT_URLS else ""}
+    return out
+
+
 @router.post("/mfds-sync", status_code=202)
-def mfds_sync(_admin: User = Depends(require_admin)):
+def mfds_sync(products: bool = False, _admin: User = Depends(require_admin)):
     if not env("DATA_GO_KR_SERVICE_KEY"):
         raise HTTPException(400, "서버에 DATA_GO_KR_SERVICE_KEY가 설정되어 있지 않아요.")
     with _job_lock:
         if job["state"] == "running":
             raise HTTPException(409, "이미 받는 중이에요.")
         job.update(state="running", message="시작하는 중", started_at=time.time(), finished_at=None)
-    threading.Thread(target=_run_sync, daemon=True, name="mfds-sync").start()
+    threading.Thread(target=lambda: _run_sync(products), daemon=True, name="mfds-sync").start()
     return job
 
 
