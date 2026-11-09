@@ -269,3 +269,68 @@ def build_products(db: Session) -> int:
                 db.commit()
     db.commit()
     return count
+
+
+# ---------- 기능성 화장품 → 제품 (원본 저장 없이 페이지마다 바로 만든다: 20만 건이라 DB 용량 절약) ----------
+import re as _re
+
+_TAG = _re.compile(r"<[^>]+>")
+
+
+def _clean_doc(text: str) -> str:
+    """식약처 문서 필드(XML/HTML 섞임)를 읽기 쉬운 글로."""
+    text = _TAG.sub(" ", text or "")
+    text = _re.sub(r"&[a-z]+;", " ", text)
+    return " ".join(text.split())[:600]
+
+
+def product_from_item(dataset: str, item: dict) -> dict | None:
+    if str(item.get("CANCEL_APPROVAL_YN") or "").upper() == "Y" or item.get("CANCEL_APPROVAL_DATE"):
+        return None  # 취소된 품목
+    name = _value(item.get("ITEM_NAME"))
+    if not name or name.lower() in _EMPTY:
+        return None
+    seq = _value(item.get("COSMETIC_REPORT_SEQ")) or _value(item.get("ITEM_SEQ"))
+    effects = []
+    ee = _value(item.get("EE_NAME")) or _clean_doc(_value(item.get("EE_DOC_DATA")))
+    if ee:
+        effects.append(ee)
+    spf, pa = _value(item.get("SPF")), _value(item.get("PA"))
+    if spf:
+        effects.append(f"자외선 차단 SPF{spf}" + (f" PA{pa}" if pa else ""))
+    usage = _value(item.get("USAGE_DOSAGE")) or _clean_doc(_value(item.get("UD_DOC_DATA")))
+    label = "기능성화장품 보고품목" if dataset == "functional_report" else "기능성화장품 심사품목"
+    date = _value(item.get("REPORT_DATE")) or _value(item.get("ITEM_PERMIT_DATE"))
+    water = _value(item.get("WATER_PROOFING_NAME"))
+    desc = "\n".join(x for x in (f"[식약처 {label}]", f"기능: {' · '.join(effects)}" if effects else "",
+                                  f"사용법: {usage}" if usage else "", f"내수성: {water}" if water else "",
+                                  f"보고/심사일: {date}" if date else "") if x)
+    return {"external_key": f"{dataset}:{seq or name}"[:200], "name": name[:200], "brand": _value(item.get("ENTP_NAME"))[:150],
+            "description": desc[:4000], "usage": usage, "spf": spf}
+
+
+def sync_products(db: Session, dataset: str, progress=None, start_page: int = 1) -> int:
+    """기능성 화장품 API를 페이지마다 받아 바로 products에 넣는다. 같은 회사+이름은 한 번만."""
+    seen = {(b or "") + "|" + n for b, n in db.execute(select(Product.brand, Product.name).where(Product.source == SOURCE_MFDS))}
+    added = 0
+    page = start_page
+    while True:
+        items, total = fetch_page(dataset, page, 100)
+        rows = [r for r in (product_from_item(dataset, i) for i in items) if r]
+        keys = [r["external_key"] for r in rows]
+        existing = set(db.scalars(select(Product.external_key).where(Product.external_key.in_(keys)))) if keys else set()
+        for r in rows:
+            dedupe = r["brand"] + "|" + r["name"]
+            if r["external_key"] in existing or dedupe in seen:
+                continue
+            seen.add(dedupe)
+            db.add(Product(source=SOURCE_MFDS, external_key=r["external_key"], name=r["name"], brand=r["brand"],
+                           category="기능성화장품", description=r["description"], status=PRODUCT_APPROVED,
+                           review_note="식약처 공공데이터 자동 등록"))
+            added += 1
+        db.commit()
+        if progress:
+            progress(page, total, added)
+        if not items or page * 100 >= total:
+            return added
+        page += 1

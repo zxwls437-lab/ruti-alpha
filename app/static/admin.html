@@ -64,6 +64,7 @@
       <p id="dataJob" class="muted" style="min-height:1.2em"></p>
       <div class="row" style="flex-wrap:wrap;gap:8px">
         <button type="button" id="mfdsSync">식약처에서 바로 받기</button>
+        <button type="button" class="ghost" id="mfdsProducts">기능성 화장품 제품 받기</button>
         <label class="ghost" style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:22px;color:var(--brand);font-weight:600;cursor:pointer;flex:0 0 auto">
           파일로 올리기<input type="file" id="ingFile" accept=".gz,.json,application/gzip,application/json" style="display:none"></label>
         <button type="button" class="ghost" id="ingExport">현재 성분 사전 내려받기</button>
@@ -213,12 +214,16 @@ async function loadData(){
   $('dataStatus').replaceChildren(
     el('span', {class: 'tag'}, `성분 ${d.ingredients.toLocaleString()}개`), el('span', {class: 'tag'}, `사용제한 ${d.restricted.toLocaleString()}개`),
     el('span', {class: 'tag'}, `기능성 제품 ${d.mfds_products.toLocaleString()}개`), el('span', {class: 'tag'}, `공유된 전성분 ${d.shared_lists.toLocaleString()}개`));
-  $('mfdsSync').disabled = !d.has_key || d.job.state === 'running';
+  $('mfdsSync').disabled = $('mfdsProducts').disabled = !d.has_key || d.job.state === 'running';
   $('dataJob').textContent = !d.has_key ? '서버에 DATA_GO_KR_SERVICE_KEY가 없어서 바로 받기는 쓸 수 없어요. 파일로 올려 주세요.'
     : d.job.state === 'idle' ? '' : d.job.message;
   clearTimeout(dataTimer);
   if (d.job.state === 'running') dataTimer = setTimeout(loadData, 3000);
 }
+$('mfdsProducts').addEventListener('click', async () => {
+  try { await api('/admin/data/mfds-sync?products=true', {method: 'POST'}); } catch (e) { $('dataJob').textContent = e.message; }
+  loadData();
+});
 $('mfdsSync').addEventListener('click', async () => {
   try { await api('/admin/data/mfds-sync', {method: 'POST'}); } catch (e) { $('dataJob').textContent = e.message; }
   loadData();

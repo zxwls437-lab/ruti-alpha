@@ -86,20 +86,23 @@ def _run_sync(products_only: bool = False) -> None:
                 job["message"] = "성분 사전으로 정리하는 중"
                 n = mfds.build_ingredients(db)
             n_prod = 0
-            for d in ("functional_report", "functional_review"):
-                if products_only or env(mfds.DATASETS[d][0]):  # 기본 주소로도 시도 (실패해도 성분 사전은 유지)
+            if products_only:
+                # 기능성 화장품: 원본은 저장하지 않고 페이지마다 바로 제품으로 (이어 받기: job["resume"])
+                for d in ("functional_review", "functional_report"):
+                    start = job.get("resume", {}).get(d, 1)
+
+                    def progress(page, total, added, d=d):
+                        job.setdefault("resume", {})[d] = page + 1
+                        job["message"] = f"{mfds.DATASETS[d][1]} {min(page * 100, total):,} / {total:,}건 확인 · 새 제품 {added:,}개"
                     try:
-                        saved = 0
-                        for _page, total, items in mfds.iter_pages(d, 100):
-                            saved += mfds.save_records(db, d, items)
-                            job["message"] = f"{mfds.DATASETS[d][1]} {saved:,} / {total:,}건 받는 중"
+                        n_prod += mfds.sync_products(db, d, progress, start)
                     except mfds.MfdsError as e:
-                        log.warning("기능성 제품 %s 실패: %s", d, e)
-                        job["message"] = f"{mfds.DATASETS[d][1]} 실패: {e}"
-            n_prod = mfds.build_products(db)
+                        raise mfds.MfdsError(f"{mfds.DATASETS[d][1]}: {e} (다시 누르면 이어서 받아요)") from None
         from .scan import index
         index.reset()
-        job.update(state="done", message=(f"완료: 기능성 제품 {n_prod:,}개" if products_only else f"완료: 성분 {n:,}개, 기능성 제품 {n_prod:,}개"))
+        if products_only:
+            job.pop("resume", None)
+        job.update(state="done", message=(f"완료: 새 기능성 제품 {n_prod:,}개" if products_only else f"완료: 성분 {n:,}개"))
     except mfds.MfdsError as e:
         job.update(state="error", message=f"식약처 연결 실패: {e}. 해외 서버에서 막혔다면 '파일로 올리기'를 써 주세요.")
     except Exception as e:  # noqa: BLE001 - 관리자에게 원인을 보여주고 기록

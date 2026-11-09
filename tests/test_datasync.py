@@ -92,3 +92,26 @@ def test_bulk_product_lists_preview_then_save(client):
     assert client.delete(f"/admin/data/product-lists/{items[0]['id']}", headers=admin).status_code == 200
     user = signup(client, "normaluser")
     assert client.post("/admin/data/product-lists", json={"text": text}, headers=user).status_code == 403
+
+
+def test_functional_products_streaming(client, monkeypatch):
+    from app.models import Product
+    pages = {
+        "functional_review": [[{"ITEM_SEQ": "1", "ITEM_NAME": "화이트 크림", "ENTP_NAME": "A사", "EE_DOC_DATA": "<p>피부의 미백에 도움을 준다</p>"}]],
+        "functional_report": [[
+            {"COSMETIC_REPORT_SEQ": "10", "ITEM_NAME": "데일리 선크림", "ENTP_NAME": "B사", "SPF": "50+", "PA": "++++",
+             "USAGE_DOSAGE": "외출 15분 전 적당량을 바른다", "CANCEL_APPROVAL_YN": "N"},
+            {"COSMETIC_REPORT_SEQ": "11", "ITEM_NAME": "취소된 크림", "ENTP_NAME": "B사", "CANCEL_APPROVAL_YN": "Y"},
+            {"COSMETIC_REPORT_SEQ": "12", "ITEM_NAME": "데일리 선크림", "ENTP_NAME": "B사"},  # 같은 회사+이름 → 한 번만
+        ]],
+    }
+    monkeypatch.setattr(mfds, "fetch_page", lambda d, page, rows: (pages[d][page - 1] if page <= len(pages[d]) else [], len(pages[d][0])))
+    with SessionLocal() as db:
+        assert mfds.sync_products(db, "functional_review") == 1
+        assert mfds.sync_products(db, "functional_report") == 1
+        assert mfds.sync_products(db, "functional_report") == 0  # 다시 받아도 중복 없음
+        sun = db.query(Product).filter_by(name="데일리 선크림").one()
+        assert "SPF50+ PA++++" in sun.description and "외출 15분 전" in sun.description and sun.status == "approved"
+        white = db.query(Product).filter_by(name="화이트 크림").one()
+        assert "미백에 도움" in white.description and "<p>" not in white.description
+        assert db.query(Product).filter_by(name="취소된 크림").count() == 0
