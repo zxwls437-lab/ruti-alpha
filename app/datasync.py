@@ -133,7 +133,8 @@ def mfds_probe(_admin: User = Depends(require_admin)):
     for d in mfds.DATASETS:
         try:
             items, total = mfds.fetch_page(d, 1, 2)
-            out[d] = {"ok": True, "total": total, "fields": sorted(items[0].keys()) if items else [],
+            sample = {k: (str(v)[:120] if v is not None else None) for k, v in items[0].items()} if items else {}
+            out[d] = {"ok": True, "total": total, "fields": sorted(items[0].keys()) if items else [], "sample": sample,
                       "url": mfds.dataset_url(d).split("?")[0]}
         except mfds.MfdsError as e:
             out[d] = {"ok": False, "error": str(e)[:300], "url": mfds.dataset_url(d).split("?")[0] if d in mfds.DEFAULT_URLS else ""}
