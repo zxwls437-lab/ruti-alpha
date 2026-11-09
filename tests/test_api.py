@@ -318,3 +318,9 @@ def test_admin_users_sorted_and_visitor_counts(client):
     assert v["total_users"] == 4 and v["online_now"] >= 1 and v["today"] >= 1 and v["new_today"] == 4
     user = signup(client, "plainuser")
     assert client.get("/admin/users", headers=user).status_code == 403
+
+
+def test_app_info_public(client, monkeypatch):
+    monkeypatch.setenv("RUTI_CONTACT_EMAIL", "help@example.com")
+    r = client.get("/app-info").json()
+    assert r["contact_email"] == "help@example.com" and r["version"] and r["terms_version"]

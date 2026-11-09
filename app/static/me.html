@@ -26,6 +26,8 @@
 .menu details>*:not(summary){margin-bottom:14px}
 .menu-row{width:100%;background:none;color:var(--text);padding:0;border-radius:0;font-weight:400}
 .menu #delete summary{color:var(--danger)}
+.contact{font-size:15px;font-weight:600;user-select:all;margin:8px 0}
+.faq details{border-bottom:0}.faq summary{min-height:44px;font-size:14px;color:var(--muted)}.faq summary::after{font-size:16px}.faq p{margin:0 0 8px;font-size:14px;line-height:1.6}
 button.small{min-height:36px;padding:4px 14px;font-size:13px}
 #mems .tag{font-size:14px;padding:6px 12px;margin:0}
 .ok{color:var(--brand);font-size:14px;min-height:1em}
@@ -97,7 +99,31 @@ button.small{min-height:36px;padding:4px 14px;font-size:13px}
       </details>
       <button type="button" class="menu-row" id="logoutBtn">로그아웃</button>
     </div>
-    <p class="muted" style="text-align:center">약관 버전 <span id="termsVer"></span> · RUTI는 의료 진단을 대신하지 않아요<br><a href="/terms">이용약관</a> · <a href="/privacy"><b>개인정보 처리방침</b></a> · <a href="/account-deletion">계정 삭제 안내</a></p>
+
+    <div class="menu card">
+      <details>
+        <summary>구독·결제</summary>
+        <p style="margin:0" id="planLine"></p>
+        <p class="muted" style="margin:6px 0 0">RUTI Plus는 앱 출시와 함께 시작해요. 결제와 해지는 Google Play(또는 App Store) 구독 관리에서 하고, 해지해도 남은 기간까지는 쓸 수 있어요.</p>
+        <a href="https://play.google.com/store/account/subscriptions" target="_blank" rel="noopener">Google Play 구독 관리 열기</a>
+      </details>
+      <details>
+        <summary>고객센터</summary>
+        <p style="margin:0">궁금한 점이나 불편한 점을 알려 주세요.</p>
+        <p class="contact" id="contact"></p>
+        <div class="faq">
+          <details><summary>사진 분석 결과가 이상해요</summary><p>성분표가 화면에 꽉 차게, 가까이서 흔들리지 않게 찍어 주세요. 글자로 입력해도 분석할 수 있어요.</p></details>
+          <details><summary>피부 정보를 바꾸고 싶어요</summary><p>홈이나 분석 화면의 '내 피부 수정'을 누르면 언제든 바꿀 수 있어요.</p></details>
+          <details><summary>내 데이터를 지우고 싶어요</summary><p>피부 정보는 '내 피부 수정'에서, 상담 기록은 상담 화면의 '대화 지우기'에서 지울 수 있어요. 전부 지우려면 회원 탈퇴를 해 주세요.</p></details>
+        </div>
+      </details>
+      <details>
+        <summary>약관·정책</summary>
+        <p style="margin:0;line-height:2"><a href="/terms">이용약관</a><br><a href="/privacy"><b>개인정보 처리방침</b></a><br><a href="/account-deletion">계정 삭제 안내</a></p>
+      </details>
+      <div class="menu-row" style="cursor:default"><span>앱 버전</span><span class="muted" id="appVer"></span></div>
+    </div>
+    <p class="muted" style="text-align:center">약관 버전 <span id="termsVer"></span> · RUTI는 의료 진단을 대신하지 않아요</p>
   </div>
 </main>
 <script src="/static/common.js"></script>
@@ -113,6 +139,14 @@ async function loadProfile(){
   $('pSub').textContent = '@' + me.nickname + ' · ' + me.username;
   $('fName').value = me.name; $('fNick').value = me.nickname;
   $('termsVer').textContent = me.terms_version;
+  $('planLine').textContent = me.plan === 'plus' ? `지금 RUTI Plus를 쓰고 있어요${me.plus_until ? ' (' + me.plus_until.slice(0, 10) + '까지)' : ''}.` : '지금은 무료로 쓰고 있어요.';
+  api('/app-info').then(i => {
+    $('appVer').textContent = i.version;
+    $('contact').replaceChildren(i.contact_email ? el('span', {}, '📮 ' + i.contact_email) : el('span', {class: 'muted'}, '문의 이메일은 정식 출시 때 안내해 드려요.'));
+    if (i.contact_email) $('contact').append(el('button', {type: 'button', class: 'ghost small', style: 'margin-left:8px', onclick: async e => {
+      try { await navigator.clipboard.writeText(i.contact_email); e.target.textContent = '복사했어요'; } catch { e.target.textContent = '길게 눌러 복사해 주세요'; }
+    }}, '복사'));
+  }).catch(() => {});
   const t = me.today, lim = (used, limit) => limit ? `${used} / ${limit}회` : `${used}회`;
   $('planBox').replaceChildren(...[
     el('div', {class: 'row'}, el('b', {}, me.plan === 'plus' ? 'RUTI Plus 이용 중' : '무료 이용 중'),
@@ -129,7 +163,7 @@ async function loadProfile(){
     const locked = ['age14', 'terms', 'privacy'].includes(c.kind) && me.consents[c.kind];
     if (locked) box.disabled = true;
     box.addEventListener('change', async () => {
-      if (c.kind === 'sensitive' && !box.checked && !confirm('민감정보 동의를 철회하면 저장된 피부 정보가 바로 삭제돼요. 철회할까요?')) { box.checked = true; return; }
+      if (c.kind === 'sensitive' && !box.checked && !await RUTI.ask('민감정보 동의를 철회할까요?', '저장된 피부 정보와 피부 컨디션 기록이 바로 삭제되고, 맞춤 판정 없이 일반 정보만 보여드려요.', '철회하기', true)) { box.checked = true; return; }
       try { const r = await api('/me/consents', {method: 'PUT', body: {consents: {[c.kind]: box.checked}}});
         flash('consentMsg', r.deleted_skin_info ? `피부 정보 ${r.deleted_skin_info}개를 삭제했어요.` : '저장했어요.'); loadProfile(); loadMems(); }
       catch (e) { box.checked = !box.checked; flash('consentMsg', e.message); }
@@ -166,15 +200,15 @@ $('pwForm').addEventListener('submit', async e => {
 });
 $('exportBtn').addEventListener('click', async () => {
   const res = await fetch('/me/export', {headers: {Authorization: 'Bearer ' + RUTI.token}});
-  if (!res.ok) return alert('내려받지 못했어요.');
+  if (!res.ok) return RUTI.toast('내려받지 못했어요.');
   const url = URL.createObjectURL(await res.blob());
   const a = el('a', {href: url, download: 'ruti-my-data.json'}); document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 });
 $('logoutBtn').addEventListener('click', () => RUTI.logout());
 $('deleteForm').addEventListener('submit', async e => {
   e.preventDefault(); $('delErr').textContent = '';
-  if (!confirm('정말 탈퇴할까요? 모든 데이터가 삭제돼요.')) return;
-  try { await api('/me', {method: 'DELETE', body: {password: e.target.password.value}}); RUTI.token = ''; alert('탈퇴가 완료됐어요. 그동안 고마웠어요.'); location.href = '/chat'; }
+  if (!await RUTI.ask('정말 탈퇴할까요?', '피부 정보, 기록, 후기, 글이 모두 지워지고 되돌릴 수 없어요.', '탈퇴하기', true)) return;
+  try { await api('/me', {method: 'DELETE', body: {password: e.target.password.value}}); RUTI.token = ''; RUTI.toast('탈퇴가 완료됐어요. 그동안 고마웠어요.'); setTimeout(() => { location.href = '/home'; }, 1500); }
   catch (err) { $('delErr').textContent = err.message; }
 });
 async function start(){

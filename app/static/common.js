@@ -105,8 +105,52 @@ const RUTI = {
     document.body.append(overlay);
   },
   async block(target, id, after){
-    if (!confirm('이 사용자를 차단할까요? 이 사람의 글·댓글·후기가 더 이상 보이지 않아요. (내 정보에서 풀 수 있어요)')) return;
-    try { await RUTI.api('/blocks', {method: 'POST', body: {target, id}}); if (after) after(); } catch (e) { alert(e.message); }
+    if (!await RUTI.ask('이 사용자를 차단할까요?', '이 사람의 글·댓글·후기가 더 이상 보이지 않아요. 내 정보에서 언제든 풀 수 있어요.', '차단하기', true)) return;
+    try { await RUTI.api('/blocks', {method: 'POST', body: {target, id}}); RUTI.toast('차단했어요'); if (after) after(); } catch (e) { RUTI.toast(e.message); }
+  },
+  // 아래에서 올라오는 창 (브라우저 confirm/alert/prompt 대신: 앱 안에서도 똑같이 보이게)
+  sheet(...children){
+    const sheet = RUTI.el('div', {class: 'sheet', role: 'dialog', 'aria-modal': 'true'}, ...children);
+    const overlay = RUTI.el('div', {class: 'sheet-overlay'}, sheet);
+    const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+    overlay.addEventListener('click', e => { if (e.target === overlay) { close(); overlay.dispatchEvent(new Event('dismiss')); } });
+    document.body.append(overlay); document.body.style.overflow = 'hidden';
+    return {overlay, close};
+  },
+  ask(title, body, okLabel = '확인', danger = false){
+    return new Promise(resolve => {
+      let s;
+      const done = v => { s.close(); resolve(v); };
+      s = RUTI.sheet(RUTI.el('h2', {style: 'margin:4px 0 8px'}, title), body ? RUTI.el('p', {class: 'muted', style: 'line-height:1.6'}, body) : '',
+        RUTI.el('button', {type: 'button', class: 'sheet-save' + (danger ? ' danger' : ''), onclick: () => done(true)}, okLabel),
+        RUTI.el('button', {type: 'button', class: 'sk-redo', onclick: () => done(false)}, '취소'));
+      s.overlay.addEventListener('dismiss', () => resolve(false));
+    });
+  },
+  toast(msg){
+    const t = RUTI.el('div', {class: 'toast', role: 'status'}, msg);
+    document.body.append(t); setTimeout(() => t.classList.add('out'), 2200); setTimeout(() => t.remove(), 2600);
+  },
+  // 신고: 이유를 버튼으로 고르고 (기타는 직접 적기) 보낸다
+  report(path, after){
+    const REASONS = ['광고·홍보', '욕설·비하', '허위 정보', '의약품처럼 과장된 표현', '개인정보 노출', '음란·불쾌한 내용'];
+    let picked = '';
+    const err = RUTI.el('div', {class: 'error'});
+    const extra = RUTI.el('input', {placeholder: '기타 이유 (선택)', maxLength: 200});
+    const row = RUTI.el('div', {class: 'chip-row'});
+    const draw = () => row.replaceChildren(...REASONS.map(r => {
+      const b = RUTI.el('button', {type: 'button', class: 'chip-toggle', onclick: () => { picked = r; draw(); }}, r);
+      b.setAttribute('aria-pressed', String(picked === r)); return b;
+    }));
+    draw();
+    const s = RUTI.sheet(RUTI.el('h2', {style: 'margin:4px 0 4px'}, '신고하기'), RUTI.el('p', {class: 'muted'}, '이유를 골라 주세요. 검토 후 조치할게요.'), row, extra, err,
+      RUTI.el('button', {type: 'button', class: 'sheet-save', onclick: async () => {
+        const reason = [picked, extra.value.trim()].filter(Boolean).join(' - ');
+        if (!reason) { err.textContent = '이유를 하나 골라 주세요.'; return; }
+        try { await RUTI.api(path, {method: 'POST', body: {reason}}); s.close(); RUTI.toast('신고했어요. 검토 후 조치할게요.'); if (after) after(); }
+        catch (e) { err.textContent = e.message; }
+      }}, '신고하기'),
+      RUTI.el('button', {type: 'button', class: 'sk-redo', onclick: () => s.close()}, '취소'));
   },
   async logout(){ try { await RUTI.api('/auth/logout', {method: 'POST'}); } catch {} RUTI.token = ''; location.reload(); },
 };
@@ -187,7 +231,7 @@ RUTI.skin = {
   async open(onSaved){
     const {el, api} = RUTI;
     let mems = [];
-    try { mems = (await api('/memory')).memories; } catch (e) { alert(e.message); return; }
+    try { mems = (await api('/memory')).memories; } catch (e) { RUTI.toast(e.message); return; }
     const preset = new Set(RUTI.skin.all.map(([, full]) => full));
     const chosen = new Set(mems.filter(m => preset.has(m.content)).map(m => m.content));
     const custom = mems.filter(m => !preset.has(m.content));

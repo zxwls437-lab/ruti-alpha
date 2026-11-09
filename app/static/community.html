@@ -3,8 +3,14 @@
 <title>RUTI 커뮤니티</title><link rel="stylesheet" href="/static/common.css">
 <style>
 .auth{max-width:380px;margin:40px auto}
-.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{padding:6px 14px}
-.post{border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;background:var(--card)}
+.ktitle{margin:0;font-size:22px;font-weight:600}
+.ktabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:12px}.ktabs .chip-toggle{flex-shrink:0}
+button.small{min-height:40px;padding:4px 16px;font-size:14px;flex:0 0 auto}
+.actions{display:flex;gap:4px;margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.act{background:none;color:var(--muted);min-height:40px;padding:0 10px;font-weight:500;font-size:14px;border-radius:12px}
+.act.on{color:var(--brand);font-weight:700}.act.more{margin-left:auto;font-size:18px}
+.linkbtn{background:none;color:var(--muted);min-height:32px;padding:0 8px}
+.post{border:1px solid var(--line);border-radius:20px;padding:16px 16px 8px;margin-bottom:12px;background:var(--card)}
 .post h3{margin:6px 0;font-size:16px}.post p{margin:6px 0;line-height:1.6;white-space:pre-wrap}
 .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .thumb{display:block;position:relative;border-radius:12px;overflow:hidden;margin:8px 0;background:#222;aspect-ratio:16/9}
@@ -27,7 +33,7 @@
 
   <div id="app" class="hidden">
     <section class="card">
-      <div class="row"><h2 style="margin:0">커뮤니티</h2><button type="button" id="writeBtn">글쓰기</button></div>
+      <div class="row" style="justify-content:space-between"><h1 class="ktitle">커뮤니티</h1><button type="button" id="writeBtn" class="small">✏️ 글쓰기</button></div>
       <form id="postForm" class="stack hidden" style="margin-top:12px">
         <select name="kind" id="kindSel">
           <option value="question">질문</option><option value="talk">이야기</option><option value="video">유튜브 영상 공유</option>
@@ -44,10 +50,8 @@
         <button>올리기</button>
         <div class="muted" id="postNotice"></div>
       </form>
-      <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
-        <div class="tabs" id="tabs"></div>
-        <label class="check" style="flex:0 0 auto"><input type="checkbox" id="similar"> 나와 비슷한 피부만</label>
-      </div>
+      <div class="ktabs" id="tabs"></div>
+      <input type="checkbox" id="similar" hidden>
     </section>
     <div id="feed"></div>
   </div>
@@ -67,9 +71,7 @@ function postCard(p){
     const d = await api('/community/posts/' + p.id);
     const input = el('input', {placeholder: '댓글을 남겨 주세요', maxLength: 1000});
     comments.replaceChildren(...d.comments.map(c => el('div', {class: 'comment'}, el('b', {}, c.author + (c.is_post_author ? ' (글쓴이)' : '')), ' ', c.body,
-        c.mine ? null : el('button', {class: 'ghost', style: 'padding:0 8px;margin-left:6px;font-size:12px', onclick: async () => {
-          const reason = prompt('신고 이유'); if (reason) { await api(`/community/comments/${c.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요.'); } }}, '신고'),
-        c.mine ? null : el('button', {class: 'ghost', style: 'padding:0 8px;margin-left:4px;font-size:12px', onclick: () => RUTI.block('comment', c.id, () => { comments.classList.add('hidden'); toggleComments(); })}, '차단'))),
+        c.mine ? null : el('button', {type: 'button', class: 'linkbtn', onclick: () => commentMore(c)}, '⋯'))),
       el('form', {class: 'row', style: 'margin-top:8px', onsubmit: async e => { e.preventDefault(); if (!input.value.trim()) return;
         await api(`/community/posts/${p.id}/comments`, {method: 'POST', body: {body: input.value}}); comments.classList.add('hidden'); toggleComments(); }},
         input, el('button', {}, '등록')));
@@ -86,20 +88,32 @@ function postCard(p){
     p.product_check ? el('div', {class: 'meta', style: 'margin:6px 0'}, el('span', {}, '📦 ' + p.product_check.product_name),
       p.product_check.found ? el('span', {class: 'pill ' + FIT[p.product_check.level]}, '나에게 ' + p.product_check.title)
         : el('span', {class: 'pill gray'}, '전성분 정보 없음')) : null,
-    el('div', {class: 'row', style: 'justify-content:flex-start;gap:6px;margin-top:6px'},
-      p.mine ? el('span', {class: 'muted'}, `도움돼요 ${p.helpful_count}`) : el('button', {class: p.helpful_by_me ? '' : 'ghost', style: 'padding:4px 12px;flex:0 0 auto',
-        onclick: async () => { await api(`/community/posts/${p.id}/helpful`, {method: 'POST'}); load(); }}, `도움돼요 ${p.helpful_count}`),
-      el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: toggleComments}, `댓글 ${p.comment_count}`),
-      p.mine ? el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
-        if (confirm('글을 지울까요?')) { await api('/community/posts/' + p.id, {method: 'DELETE'}); load(); } }}, '삭제')
-        : el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: async () => {
-          const reason = prompt('신고 이유 (예: 광고, 욕설, 허위 정보)'); if (reason) { await api(`/community/posts/${p.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요. 검토 후 조치할게요.'); } }}, '신고'),
-      p.mine ? null : el('button', {class: 'ghost', style: 'padding:4px 12px;flex:0 0 auto', onclick: () => RUTI.block('post', p.id, load)}, '차단')),
+    el('div', {class: 'actions'},
+      p.mine ? el('span', {class: 'act'}, `👍 도움돼요 ${p.helpful_count}`) : el('button', {type: 'button', class: 'act' + (p.helpful_by_me ? ' on' : ''), 'aria-pressed': String(p.helpful_by_me),
+        onclick: async () => { await api(`/community/posts/${p.id}/helpful`, {method: 'POST'}); load(); }}, `👍 도움돼요 ${p.helpful_count}`),
+      el('button', {type: 'button', class: 'act', onclick: toggleComments}, `💬 댓글 ${p.comment_count}`),
+      el('button', {type: 'button', class: 'act more', 'aria-label': '더보기', onclick: () => postMore(p)}, '⋯')),
     comments].filter(Boolean));
   return box;
 }
+// 더보기: 내 글이면 삭제, 남의 글이면 신고·차단
+function postMore(p){
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 10px'}, p.title),
+    ...(p.mine ? [el('button', {type: 'button', class: 'sheet-save danger', onclick: async () => { s.close();
+        if (await RUTI.ask('글을 지울까요?', '댓글도 함께 지워져요.', '지우기', true)) { await api('/community/posts/' + p.id, {method: 'DELETE'}); RUTI.toast('지웠어요'); load(); } }}, '글 지우기')]
+      : [el('button', {type: 'button', class: 'sheet-save', onclick: () => { s.close(); RUTI.report(`/community/posts/${p.id}/report`, load); }}, '신고하기'),
+         el('button', {type: 'button', class: 'sk-redo', style: 'color:var(--danger)', onclick: () => { s.close(); RUTI.block('post', p.id, load); }}, `${p.author} 차단하기`)]),
+    el('button', {type: 'button', class: 'sk-redo', onclick: () => s.close()}, '닫기'));
+}
+function commentMore(c){
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 10px'}, '댓글'),
+    el('button', {type: 'button', class: 'sheet-save', onclick: () => { s.close(); RUTI.report(`/community/comments/${c.id}/report`); }}, '신고하기'),
+    el('button', {type: 'button', class: 'sk-redo', style: 'color:var(--danger)', onclick: () => { s.close(); RUTI.block('comment', c.id, load); }}, `${c.author} 차단하기`),
+    el('button', {type: 'button', class: 'sk-redo', onclick: () => s.close()}, '닫기'));
+}
 async function load(){
-  $('tabs').replaceChildren(...Object.entries(TABS).map(([k, v]) => el('button', {type: 'button', class: k === tab ? '' : 'ghost', onclick: () => { tab = k; load(); }}, v)));
+  $('tabs').replaceChildren(...Object.entries(TABS).map(([k, v]) => { const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => { tab = k; load(); }}, v); b.setAttribute('aria-pressed', String(k === tab)); return b; }),
+    (() => { const b = el('button', {type: 'button', class: 'chip-toggle', onclick: () => { $('similar').checked = !$('similar').checked; load(); }}, '나와 비슷한 피부'); b.setAttribute('aria-pressed', String($('similar').checked)); return b; })());
   const q = new URLSearchParams({kind: tab, similar: $('similar').checked});
   const {posts} = await api('/community/posts?' + q);
   $('feed').replaceChildren(...posts.map(postCard));

@@ -51,7 +51,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="RUTI API", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="RUTI API", version="0.5.0", lifespan=lifespan)
 app.include_router(legal.router)
 app.include_router(datasync.router)
 app.include_router(admin_users.router)

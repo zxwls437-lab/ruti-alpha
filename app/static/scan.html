@@ -310,9 +310,7 @@ async function loadReviews(){
       rv.mine ? el('span', {class: 'muted'}, `내 후기 · 도움돼요 ${rv.helpful_count}`) :
         el('button', {type: 'button', class: rv.helpful_by_me ? '' : 'ghost', style: 'padding:4px 10px;flex:0 0 auto', onclick: async () => {
           await api(`/reviews/${rv.id}/helpful`, {method: 'POST'}); loadReviews(); }}, `도움돼요 ${rv.helpful_count}`),
-      rv.mine ? null : el('button', {type: 'button', class: 'ghost', style: 'padding:4px 10px;flex:0 0 auto', onclick: async () => {
-        const reason = prompt('신고 이유를 적어 주세요 (예: 광고, 욕설, 가짜 후기)'); if (!reason) return;
-        await api(`/reviews/${rv.id}/report`, {method: 'POST', body: {reason}}); alert('신고했어요. 검토 후 조치할게요.'); }}, '신고'),
+      rv.mine ? null : el('button', {type: 'button', class: 'ghost', style: 'padding:4px 10px;flex:0 0 auto', onclick: () => RUTI.report(`/reviews/${rv.id}/report`, loadReviews)}, '신고'),
       rv.mine ? null : el('button', {type: 'button', class: 'ghost', style: 'padding:4px 10px;flex:0 0 auto', onclick: () => RUTI.block('review', rv.id, loadReviews)}, '차단')))));
   if (!list.reviews.length) $('reviewList').append(el('p', {class: 'muted'}, '아직 후기가 없어요.'));
 }

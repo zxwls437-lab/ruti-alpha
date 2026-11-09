@@ -43,3 +43,11 @@ for _path, _file in PAGES.items():
 @router.get("/legal/legal.css")
 def legal_css():
     return FileResponse(LEGAL / "legal.css", media_type="text/css")
+
+
+@router.get("/app-info")
+def app_info():
+    """설정 화면용 공개 정보 (문의처·버전). 비밀 값은 넣지 않는다."""
+    from .main import app as _app  # 순환 import 방지
+    return {"version": _app.version, "terms_version": terms_version(),
+            "operator": env("RUTI_OPERATOR_NAME", ""), "contact_email": env("RUTI_CONTACT_EMAIL", "")}
