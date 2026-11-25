@@ -106,4 +106,10 @@
   화장대에 **이름만으로 담기**(`POST /vanity {name_only:true}`, 공유된 전성분이 있으면 자동 사용), 추천 성분이 실제로 있을 때만 '내 제품' 표시
 - 앱: Expo 프로젝트 `@taehyun23/ruti` 연결(EAS), **루틴 알림**(`mobile/src/reminders.ts`, expo-notifications, 웹 루틴 화면 '🔔 루틴 알림' → postMessage)
 - 테스트 계정 `rutiqa`(QA용, 실제 사용자 아님)
-- 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 식약처 제품명 띄어쓰기 보정, 두 글자 검색 속도, 구독 결제
+- 추가: 두 글자 검색은 시작 글자 색인(`ix_products_name_prefix`), 식약처 제품명 띄어쓰기 표시(`app/names.py`, `products.display_name`),
+  다크 모드 배지 색, **오류 기록**(`app/errors.py`, `/client-error`, 관리자 '오류 기록'), 분석 결과 **공유하기**(`RUTI.share`, 앱은 네이티브 공유창),
+  앱 첫 로딩 4초 넘으면 '깨우는 중' 안내
+- 안드로이드 테스트 APK 1호(알림·공유 전): https://expo.dev/artifacts/eas/QwLVc_8hitmQptGlXCU75gOPCKBy1OV4Gy-MUFoJOcY.apk
+  2호(알림·공유 포함) 빌드 696fa14e-9801-446a-82a9-36e4dc4b4997 대기 중 → `cd mobile && EXPO_TOKEN=proxy-injected eas build:view <id>`
+- 대표 결정 대기: 웹 서버 유료 전환(월 $7, 잠자기 없앰) — 외부 공개하는 날
+- 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 구독 결제, 실사진 정확도 테스트, 2호 APK 링크 전달
