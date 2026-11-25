@@ -34,6 +34,8 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .linkish{background:none;color:var(--brand);padding:4px 0;min-height:36px;font-weight:600;font-size:13.5px}.empty p{color:var(--muted);margin:0 0 10px}
 .ex-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;color:var(--text);min-height:44px}.ex-row span{font-size:12.5px;color:var(--muted)}
 .noing{display:block;font-size:12px;color:#84601F;text-decoration:none;margin-top:2px}
+.remind-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.remind-row label{display:flex;gap:8px;align-items:center;font-weight:600;min-height:44px;white-space:nowrap;flex:1}.remind-row input[type=checkbox]{width:22px;height:22px;flex:0 0 22px;margin:0}.remind-row input[type=time]{width:auto;min-width:120px}
+.moods button{padding:8px 4px;white-space:nowrap;font-size:12.5px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -65,6 +67,12 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
       <p class="muted" style="font-size:12px;margin:10px 0 0">피부 타입·고민에 따른 일반적인 스킨케어 안내예요. 의료 진단이 아니에요.</p>
     </section>
 
+    <section class="card hidden" id="remindCard">
+      <h2 style="margin:0 0 4px">🔔 루틴 알림</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:13.5px">정한 시간에 폰으로 살짝 알려드려요.</p>
+      <div class="remind-row"><label><input type="checkbox" id="remAmOn"> ☀️ 아침</label><input type="time" id="remAm" value="08:00"></div>
+      <div class="remind-row"><label><input type="checkbox" id="remPmOn"> 🌙 저녁</label><input type="time" id="remPm" value="22:00"></div>
+    </section>
     <section class="card" id="moodCard">
       <h2>오늘 피부는 어때요?</h2>
       <div class="moods" id="moods"></div>
@@ -230,6 +238,26 @@ function editItem(id){
   document.body.append(overlay); document.body.style.overflow = 'hidden';
 }
 $('addProduct').addEventListener('click', addProductSheet);
+// 루틴 알림 (앱 안에서만): 설정은 이 폰에만 저장하고, 실제 알림은 앱이 폰에 건다
+(function reminders(){
+  const bridge = window.ReactNativeWebView;
+  if (!window.RUTI_NATIVE || !bridge) return;
+  $('remindCard').classList.remove('hidden');
+  let saved = {am: null, pm: null};
+  try { saved = JSON.parse(localStorage.getItem('ruti_reminders') || '{"am":null,"pm":null}'); } catch {}
+  for (const k of ['am', 'pm']) {
+    const on = $(k === 'am' ? 'remAmOn' : 'remPmOn'), t = $(k === 'am' ? 'remAm' : 'remPm');
+    on.checked = !!saved[k]; if (saved[k]) t.value = saved[k]; t.disabled = !on.checked;
+  }
+  const apply = () => {
+    const v = {am: $('remAmOn').checked ? $('remAm').value : null, pm: $('remPmOn').checked ? $('remPm').value : null};
+    $('remAm').disabled = !$('remAmOn').checked; $('remPm').disabled = !$('remPmOn').checked;
+    try { localStorage.setItem('ruti_reminders', JSON.stringify(v)); } catch {}
+    bridge.postMessage(JSON.stringify({type: 'reminders', ...v}));
+  };
+  window.RUTI_onReminders = r => RUTI.toast(r === 'ok' ? '알림을 저장했어요' : r === 'denied' ? '폰 설정에서 RUTI 알림을 허용해 주세요' : '시간을 다시 골라 주세요');
+  for (const id of ['remAmOn', 'remPmOn', 'remAm', 'remPm']) $(id).addEventListener('change', apply);
+})();
 $('skinEdit').addEventListener('click', () => RUTI.skin.open(async () => { data = await api('/routine/today'); render(); }));
 
 async function start(){

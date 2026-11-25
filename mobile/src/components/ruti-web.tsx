@@ -8,6 +8,7 @@ import { WebView, type WebViewMessageEvent, type WebViewNavigation, type WebView
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
 import { emitAuthChange, onAuthChange } from '@/auth-events';
+import { applyReminders } from '@/reminders';
 import { COLORS, SERVER_ORIGIN, SERVER_URL, TABS, type TabName } from '@/config';
 
 const APP_VERSION = '1.0.0';
@@ -108,7 +109,7 @@ export function RutiWeb({ tab }: { tab: TabName }) {
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
-      let msg: { type?: string; url?: string } = {};
+      let msg: { type?: string; url?: string; am?: string | null; pm?: string | null } = {};
       try {
         msg = JSON.parse(e.nativeEvent.data);
       } catch {
@@ -116,6 +117,12 @@ export function RutiWeb({ tab }: { tab: TabName }) {
       }
       if (msg.type === 'auth') emitAuthChange(tab);
       if (msg.type === 'openExternal' && msg.url && /^https?:\/\//.test(msg.url)) Linking.openURL(msg.url).catch(() => {});
+      if (msg.type === 'reminders') {
+        // 웹(루틴 화면)에서 고른 알림 시각을 폰 알림으로 건다. 결과를 웹에 돌려준다.
+        applyReminders({ am: msg.am ?? null, pm: msg.pm ?? null })
+          .catch(() => 'invalid' as const)
+          .then((r) => ref.current?.injectJavaScript(`window.RUTI_onReminders && window.RUTI_onReminders(${JSON.stringify(r)}); true;`));
+      }
     },
     [tab],
   );

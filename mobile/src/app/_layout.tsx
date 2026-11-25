@@ -1,4 +1,7 @@
+import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
+import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
@@ -11,6 +14,11 @@ setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 6000);
 // 진짜 안드로이드/iOS 하단 탭 (홈·분석·루틴·커뮤니티·상담). 각 탭 안에는 RUTI 화면이 들어간다.
 export default function TabLayout() {
   const c = COLORS[useColorScheme() === 'dark' ? 'dark' : 'light'];
+  // 루틴 알림을 누르면 루틴 탭으로
+  const last = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (last?.notification.request.content.data?.path === '/routine') router.navigate('/routine');
+  }, [last]);
   return (
     <NativeTabs
       backgroundColor={c.card}
