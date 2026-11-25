@@ -58,6 +58,7 @@ class Product(Base):
     __tablename__ = "products"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
+    display_name: Mapped[str] = mapped_column(String(220), default="")  # 화면 표시용 띄어쓰기 (names.py)
     brand: Mapped[str] = mapped_column(String(150), default="")
     category: Mapped[str] = mapped_column(String(50), default="", index=True)
     # 쉼표로 구분: "건성,복합성"

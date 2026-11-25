@@ -359,3 +359,19 @@ def test_admin_reset_password(client):
     assert client.post("/auth/login", json={"username": "forgetful1", "password": "password123"}).status_code == 401
     assert client.post("/auth/login", json={"username": "forgetful1", "password": temp}).status_code == 200
     assert client.post("/admin/users/nobody/reset-password", headers=admin).status_code == 404
+
+
+def test_display_names(client):
+    from app.db import SessionLocal
+    from app.models import Product
+    from app.names import fill_display_names
+    headers = signup(client, "dispname1")
+    with SessionLocal() as db:
+        for n in ("라운드랩약콩세럼", "라운드랩사과미백크림", "라운드랩1025독도선크림", "라운드랩365안심선크림"):
+            db.add(Product(name=n, brand="서린컴퍼니(주)", status="approved", source="mfds", description=""))
+        db.commit()
+        assert fill_display_names(db) == 4
+    names = [p["name"] for p in client.get("/products/find?q=라운드랩", headers=headers).json()["products"]]
+    assert "라운드랩 약콩세럼" in names and "라운드랩 1025독도선크림" in names
+    # 붙여 쓴 원래 이름으로도 그대로 찾아진다
+    assert client.get("/products/find?q=약콩세럼", headers=headers).json()["products"][0]["name"] == "라운드랩 약콩세럼"

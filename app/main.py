@@ -50,6 +50,8 @@ def bootstrap_admin() -> None:
 async def lifespan(_app: FastAPI):
     init_db()
     bootstrap_admin()
+    from . import names  # noqa: PLC0415
+    names.fill_in_background(SessionLocal)
     yield
 
 
@@ -432,7 +434,7 @@ def find_products(q: str, limit: int = 20, _user: User = Depends(current_user), 
         lst = by_key.get(name_key(p.brand, p.name)) or by_key.get(name_key("", p.name))
         if lst:
             used.add(lst.id)
-        out.append({"id": p.id, "name": p.name, "brand": p.brand, "source": p.source,
+        out.append({"id": p.id, "name": p.display_name or p.name, "brand": p.brand, "source": p.source,
                     "functions": _desc_line(p.description, "기능:"), "usage": _desc_line(p.description, "사용법:"),
                     "ingredients": json.loads(lst.ingredients) if lst else []})
     for lst in lists:

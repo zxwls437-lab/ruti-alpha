@@ -206,7 +206,7 @@ def _example_pool(db: Session, kind: str) -> list[dict]:
     not_code = ~Product.name.op("~")("^[0-9]") if db.bind.dialect.name == "postgresql" else true()
     rows = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, *conds, not_code)
                       .order_by(Product.id.desc()).limit(300)).all()
-    pool = [{"id": p.id, "name": p.name, "brand": p.brand, "source": p.source, "functions": _desc_line(p.description, "기능:"),
+    pool = [{"id": p.id, "name": p.display_name or p.name, "brand": p.brand, "source": p.source, "functions": _desc_line(p.description, "기능:"),
              "usage": _desc_line(p.description, "사용법:"), "ingredients": []} for p in rows]
     random.Random(kind).shuffle(pool)
     _example_cache[kind] = (time.monotonic(), pool)

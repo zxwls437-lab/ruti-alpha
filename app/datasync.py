@@ -102,6 +102,9 @@ def _run_sync(products_only: bool = False) -> None:
         index.reset()
         if products_only:
             job.pop("resume", None)
+            from .names import fill_display_names  # noqa: PLC0415
+            job["message"] = "제품명 띄어쓰기 정리 중"
+            fill_display_names(db)
         job.update(state="done", message=(f"완료: 새 기능성 제품 {n_prod:,}개" if products_only else f"완료: 성분 {n:,}개"))
     except mfds.MfdsError as e:
         job.update(state="error", message=f"식약처 연결 실패: {e}. 해외 서버에서 막혔다면 '파일로 올리기'를 써 주세요.")
