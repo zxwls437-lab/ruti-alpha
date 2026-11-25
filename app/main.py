@@ -408,9 +408,10 @@ def find_products(q: str, limit: int = 20, _user: User = Depends(current_user), 
     if len(q) < 2:
         return {"products": []}
     limit = max(1, min(limit, 50))
-    pattern = _like(q)
-    prods = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED,
-                                             or_(Product.name.ilike(pattern, escape="\\"), Product.brand.ilike(pattern, escape="\\")))
+    # 식약처 제품명은 띄어쓰기 없이 붙어 있는 경우가 많아('라운드랩독도토너') 단어마다 따로 찾는다 (모든 단어 포함)
+    words = [w for w in q.split() if len(w) >= 1][:5]
+    conds = [or_(Product.name.ilike(_like(w), escape="\\"), Product.brand.ilike(_like(w), escape="\\")) for w in words]
+    prods = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, *conds)
                        .order_by(func.length(Product.name), Product.id).limit(limit)).all()
     key = name_key("", q)
     lists = db.scalars(select(ProductIngredientList).where(ProductIngredientList.name_key.contains(key))
