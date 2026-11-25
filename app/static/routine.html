@@ -32,6 +32,7 @@
 button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .empty{text-align:center;padding:10px 0}
 .linkish{background:none;color:var(--brand);padding:4px 0;min-height:36px;font-weight:600;font-size:13.5px}.empty p{color:var(--muted);margin:0 0 10px}
+.ex-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;color:var(--text);min-height:44px}.ex-row span{font-size:12.5px;color:var(--muted)}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -117,7 +118,9 @@ function render(){
     el('b', {}, st.title), el('p', {}, st.why),
     st.look_for.length ? el('div', {class: 'chip-row', style: 'margin:4px 0 0'}, ...st.look_for.map(f => el('span', {class: 'tag'}, f))) : null,
     el('div', {class: 'mine ' + (st.mine.length ? 'yes' : 'no')}, st.mine.length ? '✓ 내 제품: ' + st.mine.map(m => m.product_name).join(', ') : '아직 이 단계 제품이 없어요'),
-    el('button', {type: 'button', class: 'linkish', onclick: () => RUTI.usage.open({category: usageKind(st)})}, '▶ 이렇게 발라요')))));
+    el('div', {style: 'display:flex;gap:14px;flex-wrap:wrap'},
+      el('button', {type: 'button', class: 'linkish', onclick: () => RUTI.usage.open({category: usageKind(st)})}, '▶ 이렇게 발라요'),
+      st.examples ? el('button', {type: 'button', class: 'linkish', onclick: () => showExamples(st)}, '🔎 제품 예시') : null)))));
   $('recAvoid').replaceChildren(...(rec.avoid.length ? [el('p', {class: 'warn', style: 'margin-top:10px'}, '피하면 좋은 성분: ' + rec.avoid.join(', '))] : []));
   $('recNotes').replaceChildren(...rec.notes.map(n => el('p', {class: 'muted', style: 'margin:6px 0;font-size:13.5px'}, '💡 ' + n)));
   // 피부 컨디션
@@ -137,6 +140,25 @@ function render(){
   $('vanity').replaceChildren(...(data.items.length ? data.items.map(i => el('div', {class: 'row'},
     el('span', {style: 'min-width:0'}, i.product_name, el('span', {class: 'muted', style: 'margin-left:6px;font-size:12px'}, `${i.step_label} · ${i.slots.map(s => s === 'am' ? '아침' : '저녁').join('·') || '안 씀'}`)),
     el('button', {type: 'button', class: 'ghost small', style: 'flex:0 0 auto', onclick: () => editItem(i.id)}, '설정'))) : [el('p', {class: 'muted'}, '아직 담은 제품이 없어요.')]));
+}
+
+// 추천 단계 → 식약처에 신고된 조건 맞는 제품 예시
+async function showExamples(st){
+  const list = el('div', {}, el('p', {class: 'muted'}, '찾는 중…'));
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, st.title + ' 예시'), list);
+  try {
+    const r = await api('/routine/examples?kind=' + st.examples);
+    list.replaceChildren(el('p', {class: 'muted', style: 'margin:0 0 8px;font-size:13px'}, `${r.label} · 식약처에 신고된 제품 중 일부예요. 광고·순위가 아니고, 날마다 순서가 바뀌어요.`),
+      ...(r.products.length ? r.products.map(p => el('button', {type: 'button', class: 'ex-row', onclick: () => exampleSheet(p, st)},
+        el('b', {}, p.name), el('span', {}, p.functions || ''))) : [el('p', {class: 'muted'}, '아직 조건에 맞는 제품 정보가 없어요.')]));
+  } catch (err) { list.replaceChildren(el('p', {class: 'error'}, err.message)); }
+}
+function exampleSheet(p, st){
+  RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.brand ? '식약처 신고 회사: ' + p.brand : ''),
+    p.functions ? el('p', {}, '✔ ' + p.functions) : null,
+    p.usage ? el('p', {class: 'muted', style: 'font-size:13.5px'}, '사용법: ' + p.usage) : null,
+    el('button', {type: 'button', class: 'sheet-save', onclick: () => RUTI.usage.open({name: p.name, usage: p.usage, functions: p.functions, category: usageKind(st)})}, '▶ 사용법 보기'),
+    el('p', {class: 'muted', style: 'font-size:12.5px;margin-top:10px'}, '전성분은 제품 뒷면을 분석 탭에서 찍으면 내 피부에 맞는지 바로 볼 수 있어요.'));
 }
 
 // 추천 단계 → 사용법 애니메이션 종류

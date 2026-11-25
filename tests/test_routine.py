@@ -86,3 +86,30 @@ def test_recommend_more_concerns():
     assert any("각질 케어" in s["title"] for s in r["pm"])
     r = routine.recommend(["에센셜 오일에 민감해요", "파라벤에 민감해요"])
     assert {"에센셜 오일", "파라벤"} <= set(r["avoid"])
+
+
+def test_step_examples(client):
+    from app.db import SessionLocal
+    from app.models import Product
+    from tests.test_api import signup
+    headers = signup(client, "examples1")
+    with SessionLocal() as db:
+        db.add_all([
+            Product(name="데일리 선크림", brand="A사", status="approved", source="mfds", description="[식약처]\n기능: 자외선 차단 SPF50+ PA4\n사용법: 외출 전 바른다"),
+            Product(name="약한 선크림", brand="A사", status="approved", source="mfds", description="[식약처]\n기능: 자외선 차단 SPF30 PA2"),
+            Product(name="무기자차 마일드 선크림", brand="B사", status="approved", source="mfds", description="[식약처]\n기능: 자외선 차단 SPF50+ PA4"),
+            Product(name="비타 미백 세럼", brand="C사", status="approved", source="mfds", description="[식약처]\n기능: 피부의 미백에 도움을 준다."),
+            Product(name="링클 아이크림", brand="C사", status="approved", source="mfds", description="[식약처]\n기능: 피부의 주름개선에 도움을 준다."),
+        ])
+        db.commit()
+    sun = client.get("/routine/examples?kind=sun", headers=headers).json()
+    names = {p["name"] for p in sun["products"]}
+    assert "데일리 선크림" in names and "약한 선크림" not in names
+    assert sun["products"][0]["functions"].startswith("자외선 차단")
+    assert [p["name"] for p in client.get("/routine/examples?kind=sun_mild", headers=headers).json()["products"]] == ["무기자차 마일드 선크림"]
+    assert [p["name"] for p in client.get("/routine/examples?kind=brighten", headers=headers).json()["products"]] == ["비타 미백 세럼"]
+    assert [p["name"] for p in client.get("/routine/examples?kind=eye", headers=headers).json()["products"]] == ["링클 아이크림"]
+    assert client.get("/routine/examples?kind=nope", headers=headers).status_code == 404
+    # 추천 단계에 예시 종류가 붙는다
+    rec = client.get("/routine/today", headers=headers).json()["recommendation"]
+    assert next(s for s in rec["am"] if s["step"] == "sunscreen")["examples"] in ("sun", "sun_mild")

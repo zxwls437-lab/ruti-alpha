@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select, true
 from sqlalchemy.orm import Session
 
 from . import account
 from .db import get_db
-from .models import Memory, RoutineCheck, SkinLog, User, VanityItem
+from .models import PRODUCT_APPROVED, SOURCE_MFDS, Memory, Product, RoutineCheck, SkinLog, User, VanityItem
 from .plans import KST
 from .scan import SENSITIVITY_GROUPS, matching_memo, normalize, strip_parens
 from .security import current_user
@@ -146,9 +146,62 @@ def recommend(memories: list[str]) -> dict:
     labels = {"fragrance": "향료", "alcohol": "알코올", "exfoliant": "각질 제거 성분(AHA·BHA)", "retinoid": "레티놀",
               "paraben": "파라벤", "essential_oil": "에센셜 오일"}
     avoid = sorted({labels[g] for g in avoid_groups} | ({"향료"} if gentle else set()))
-    as_dict = lambda steps: [{"step": s, "title": t, "look_for": list(f), "why": w} for s, t, f, w in steps]  # noqa: E731
+    as_dict = lambda steps: [{"step": s, "title": t, "look_for": list(f), "why": w, "examples": example_kind(s, t, gentle)}  # noqa: E731
+                             for s, t, f, w in steps]
     return {"skin": skin, "sensitive": sensitive, "am": as_dict(am), "pm": as_dict(pm), "avoid": avoid, "notes": notes,
             "based_on": memories[:6], "needs_skin_info": not memories}
+
+
+# ---------- 추천 단계별 제품 예시 (식약처 기능성 화장품) ----------
+# 식약처 데이터에는 기능성(자외선 차단·미백·주름) 제품만 있어서, 그 기능이 핵심인 단계에만 예시를 붙인다.
+# 광고·순위가 아니라 '이 조건에 맞는 신고 제품' 예시이며, 날마다 섞어서 특정 제품만 계속 나오지 않게 한다.
+_SUN = ("선크림", "선젤", "선로션", "선세럼", "선밀크", "선에센스", "선스크린", "썬크림")
+EXAMPLES = {
+    "sun": {"label": "SPF50+ · PA++++ 선크림", "name": (_SUN,),
+            "desc": (("SPF50+",), ("PA4", "PA++++"))},
+    "sun_mild": {"label": "무기자차(순한) 선크림 · SPF50+", "name": (_SUN, ("무기", "마일드", "민감", "순한")), "desc": (("SPF50+",),)},
+    "brighten": {"label": "미백 기능성 세럼·앰플", "name": (("세럼", "앰플", "에센스"),), "desc": (("미백",),)},
+    "wrinkle": {"label": "주름개선 기능성 세럼·앰플", "name": (("세럼", "앰플", "에센스"),), "desc": (("주름",),)},
+    "retinol": {"label": "주름개선 기능성 레티놀 제품", "name": (("레티놀",),), "desc": (("주름",),)},
+    "eye": {"label": "주름개선 기능성 아이크림", "name": (("아이크림", "아이세럼", "아이 크림"),), "desc": (("주름",),)},
+}
+
+
+def _desc_line(desc: str, head: str) -> str:
+    return next((line[len(head):].strip() for line in (desc or "").splitlines() if line.startswith(head)), "")
+
+
+def example_kind(step: str, title: str, gentle: bool) -> str | None:
+    if step == "sunscreen":
+        return "sun_mild" if gentle else "sun"
+    if "아이크림" in title:
+        return "eye"
+    if "레티놀" in title:
+        return "retinol"
+    if "펩타이드" in title:
+        return "wrinkle"
+    if "비타민C" in title:
+        return "brighten"
+    return None
+
+
+@router.get("/examples")
+def step_examples(kind: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    spec = EXAMPLES.get(kind)
+    if not spec:
+        raise HTTPException(404, "알 수 없는 종류예요.")
+    from .retrieval import like  # noqa: PLC0415
+    conds = [or_(*(Product.name.ilike(like(w), escape="\\") for w in any_of)) for any_of in spec["name"]]
+    for any_of in spec["desc"]:
+        conds.append(or_(*(Product.description.ilike(like(w), escape="\\") for w in any_of)))
+    # 이름이 숫자 코드로 시작하는 등 시판명이 아닌 것은 제외, 날마다 다른 순서 (사용자마다도 다르게)
+    seed = (int(today().replace("-", "")) + user.id) % 997
+    rows = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, *conds,
+                                            ~Product.name.op("~")("^[0-9]") if db.bind.dialect.name == "postgresql" else true())
+                      .order_by((Product.id * 7919 + seed) % 10007).limit(12)).all()
+    return {"label": spec["label"], "products": [
+        {"id": p.id, "name": p.name, "brand": p.brand, "source": p.source,
+         "functions": _desc_line(p.description, "기능:"), "usage": _desc_line(p.description, "사용법:"), "ingredients": []} for p in rows]}
 
 
 def _memories(db: Session, user: User) -> list[str]:
