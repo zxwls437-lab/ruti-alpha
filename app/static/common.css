@@ -110,3 +110,10 @@ body.in-app .topbar{padding-top:10px}
 
 .pw-wrap{position:relative}.pw-wrap input{width:100%;padding-right:64px}
 .pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;color:var(--brand);font-size:13px;font-weight:700;padding:8px 10px;min-height:40px}
+/* 다크 모드: 화면마다 밝은 색으로 적어 둔 빨강·주황 배지를 어둡게 (밤에 눈부시지 않게) */
+@media (prefers-color-scheme:dark){
+  .pill.avoid,.t.red,.chip.red,.warnbadge,.verdict.avoid{background:#3E2522!important;color:#F0A89C!important}
+  .t.orange,.chip.orange,.pill.check,.verdict.check{background:#3A3020!important;color:#E9C987!important}
+  .verdict.avoid,.verdict.check{border-color:transparent}
+  .noing{color:#E9C987}
+}
