@@ -66,6 +66,8 @@ def add_search_indexes() -> None:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_products_name_trgm ON products USING gin (name gin_trgm_ops)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_products_brand_trgm ON products USING gin (brand gin_trgm_ops)"))
+            # 두 글자 검색은 trigram이 못 쓰여서 '그 글자로 시작' 검색용 색인
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_products_name_prefix ON products (name text_pattern_ops)"))
     except Exception:  # noqa: BLE001  (색인이 없어도 검색은 된다, 느릴 뿐)
         logging.getLogger("ruti").exception("검색 색인 만들기 실패")
 

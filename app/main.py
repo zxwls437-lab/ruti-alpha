@@ -410,9 +410,19 @@ def find_products(q: str, limit: int = 20, _user: User = Depends(current_user), 
     limit = max(1, min(limit, 50))
     # 식약처 제품명은 띄어쓰기 없이 붙어 있는 경우가 많아('라운드랩독도토너') 단어마다 따로 찾는다 (모든 단어 포함)
     words = [w for w in q.split() if len(w) >= 1][:5]
-    conds = [or_(Product.name.ilike(_like(w), escape="\\"), Product.brand.ilike(_like(w), escape="\\")) for w in words]
+    pattern = _like(q)
+    if len(q) < 3:
+        # 두 글자는 부분 검색 색인을 못 써서 느리다(20만 개 전체 훑기) → '이 글자로 시작하는 제품'으로 찾는다
+        prefix = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        conds = [Product.name.like(prefix, escape="\\")]
+    else:
+        conds = [or_(Product.name.ilike(_like(w), escape="\\"), Product.brand.ilike(_like(w), escape="\\")) for w in words]
     prods = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, *conds)
                        .order_by(func.length(Product.name), Product.id).limit(limit)).all()
+    if len(q) < 3 and len(prods) < 5:  # 시작 글자로 거의 못 찾으면(예: '토너') 느리더라도 전체에서 찾는다
+        prods = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, or_(
+            Product.name.ilike(pattern, escape="\\"), Product.brand.ilike(pattern, escape="\\")))
+                           .order_by(func.length(Product.name), Product.id).limit(limit)).all()
     key = name_key("", q)
     lists = db.scalars(select(ProductIngredientList).where(ProductIngredientList.name_key.contains(key))
                        .order_by(ProductIngredientList.confirmations.desc()).limit(limit)).all() if len(key) >= 2 else []
