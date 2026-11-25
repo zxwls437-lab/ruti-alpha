@@ -92,3 +92,18 @@
 - 처리방침 갱신(피부 컨디션·루틴·마지막 이용 시각·OpenAI로 이름 전송), 구글 플레이 데이터 보안 답안 `docs/PLAY_DATA_SAFETY.md`
 - 배포: Render 자동 배포가 안 걸려 있어 Render API로 수동 배포함 (`POST /v1/services/srv-dbo77hei0phs73e3tfk0/deploys`)
 - 보류(토론 결과): 루틴 알림(실기기 설치 후), 루틴 추천 → 제품 찾기(제품 200개 이후), 해외 서버(한국 출시 안정 후)
+
+
+## 11. 2026-11-25 ~ 26 작업 (제품 DB · 고객 관점 개선)
+- 운영: Render DB **유료(0.1c-256mb, 월 $6) 전환 완료** — 만료 없음. 관리자 비밀번호 대표가 변경, 서버의 `RUTI_BOOTSTRAP_ADMIN_*` 환경 변수 삭제
+  (남아 있으면 재시작 때 옛 비밀번호로 되돌아감). `RUTI_PRIVACY_OFFICER`=김태현, 공공데이터 키 재발급 반영
+- 제품 DB: 식약처 기능성 화장품 215,682개 (`mfds.sync_products`). PostgreSQL trigram 색인(`db.add_search_indexes`)으로 이름 검색 1초 이내(3글자 이상)
+  · 제품 찾기는 단어별 AND 검색(식약처 제품명이 붙여쓰기라서) · 식약처 제품은 '신고 회사'로 표시(브랜드가 아니라 제조·책임판매업자)
+- 사용법 애니메이션 10종 `app/static/usage.js` (`RUTI.usage.open`, `kindOf`) — 분석·제품 찾기·루틴에 연결
+- 추천 루틴 단계별 제품 예시 `GET /routine/examples?kind=sun|sun_mild|brighten|wrinkle|retinol|eye` (종류별 후보 6시간 캐시, 사람·날짜별 섞기, 광고 아님 표시)
+- 고객 관점 개선: 첫 화면 소개, 비밀번호 찾기 안내 + 관리자 임시 비밀번호(`POST /admin/users/{username}/reset-password`),
+  가입 모드 정리·비밀번호 보기, AI 답 2~4문장, 분석 결과에서 같은 피부 정보에 걸린 성분은 한 줄·그림 버튼 하나로 묶기(`others`),
+  화장대에 **이름만으로 담기**(`POST /vanity {name_only:true}`, 공유된 전성분이 있으면 자동 사용), 추천 성분이 실제로 있을 때만 '내 제품' 표시
+- 앱: Expo 프로젝트 `@taehyun23/ruti` 연결(EAS), **루틴 알림**(`mobile/src/reminders.ts`, expo-notifications, 웹 루틴 화면 '🔔 루틴 알림' → postMessage)
+- 테스트 계정 `rutiqa`(QA용, 실제 사용자 아님)
+- 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 식약처 제품명 띄어쓰기 보정, 두 글자 검색 속도, 구독 결제
