@@ -22,7 +22,9 @@
         "backgroundColor": "#4F7D6E",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -41,16 +43,28 @@
           "backgroundColor": "#FBF8F3",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 140,
-          "dark": { "backgroundColor": "#1B1816", "image": "./assets/images/splash-icon.png" }
+          "dark": {
+            "backgroundColor": "#1B1816",
+            "image": "./assets/images/splash-icon.png"
+          }
         }
       ]
     ],
     "extra": {
-      "serverUrl": "https://ruti.onrender.com"
+      "serverUrl": "https://ruti.onrender.com",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "90629ea7-818a-468c-bb90-12d5b55bf5e6"
+      }
     },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "taehyun23"
   }
 }
