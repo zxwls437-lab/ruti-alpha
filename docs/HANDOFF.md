@@ -110,6 +110,7 @@
   다크 모드 배지 색, **오류 기록**(`app/errors.py`, `/client-error`, 관리자 '오류 기록'), 분석 결과 **공유하기**(`RUTI.share`, 앱은 네이티브 공유창),
   앱 첫 로딩 4초 넘으면 '깨우는 중' 안내
 - 안드로이드 테스트 APK 1호(알림·공유 전): https://expo.dev/artifacts/eas/QwLVc_8hitmQptGlXCU75gOPCKBy1OV4Gy-MUFoJOcY.apk
-  2호(알림·공유 포함) 빌드 696fa14e-9801-446a-82a9-36e4dc4b4997 대기 중 → `cd mobile && EXPO_TOKEN=proxy-injected eas build:view <id>`
+  2호(루틴 알림 포함, 앱 공유창·로딩 안내는 아직): https://expo.dev/artifacts/eas/F6t4O_3x28mCvr42Y6lJwV1YDhdHNwUXe3d1hMV7HpA.apk
+  다음 빌드에 앱 공유창·'깨우는 중' 안내가 들어감 (`cd mobile && EXPO_TOKEN=proxy-injected eas build -p android --profile preview`)
 - 대표 결정 대기: 웹 서버 유료 전환(월 $7, 잠자기 없앰) — 외부 공개하는 날
-- 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 구독 결제, 실사진 정확도 테스트, 2호 APK 링크 전달
+- 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 구독 결제, 실사진 정확도 테스트, 3호 APK 빌드
