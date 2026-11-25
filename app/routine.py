@@ -185,23 +185,42 @@ def example_kind(step: str, title: str, gentle: bool) -> str | None:
     return None
 
 
-@router.get("/examples")
-def step_examples(kind: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    spec = EXAMPLES.get(kind)
-    if not spec:
-        raise HTTPException(404, "알 수 없는 종류예요.")
+_example_cache: dict[str, tuple[float, list[dict]]] = {}  # 종류 → (만든 시각, 후보 최대 300개). 20만 개를 매번 훑지 않게
+_EXAMPLE_TTL = 6 * 3600
+
+
+def _example_pool(db: Session, kind: str) -> list[dict]:
+    import random  # noqa: PLC0415
+    import time  # noqa: PLC0415
+
     from .retrieval import like  # noqa: PLC0415
+    hit = _example_cache.get(kind)
+    if hit and time.monotonic() - hit[0] < _EXAMPLE_TTL:
+        return hit[1]
+    spec = EXAMPLES[kind]
     conds = [or_(*(Product.name.ilike(like(w), escape="\\") for w in any_of)) for any_of in spec["name"]]
     for any_of in spec["desc"]:
         conds.append(or_(*(Product.description.ilike(like(w), escape="\\") for w in any_of)))
-    # 이름이 숫자 코드로 시작하는 등 시판명이 아닌 것은 제외, 날마다 다른 순서 (사용자마다도 다르게)
-    seed = (int(today().replace("-", "")) + user.id) % 997
-    rows = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, *conds,
-                                            ~Product.name.op("~")("^[0-9]") if db.bind.dialect.name == "postgresql" else true())
-                      .order_by((Product.id * 7919 + seed) % 10007).limit(12)).all()
-    return {"label": spec["label"], "products": [
-        {"id": p.id, "name": p.name, "brand": p.brand, "source": p.source,
-         "functions": _desc_line(p.description, "기능:"), "usage": _desc_line(p.description, "사용법:"), "ingredients": []} for p in rows]}
+    # 이름이 숫자 코드로 시작하는 것(시판명이 아닌 내부 코드)은 제외
+    not_code = ~Product.name.op("~")("^[0-9]") if db.bind.dialect.name == "postgresql" else true()
+    rows = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, *conds, not_code)
+                      .order_by(Product.id.desc()).limit(300)).all()
+    pool = [{"id": p.id, "name": p.name, "brand": p.brand, "source": p.source, "functions": _desc_line(p.description, "기능:"),
+             "usage": _desc_line(p.description, "사용법:"), "ingredients": []} for p in rows]
+    random.Random(kind).shuffle(pool)
+    _example_cache[kind] = (time.monotonic(), pool)
+    return pool
+
+
+@router.get("/examples")
+def step_examples(kind: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if kind not in EXAMPLES:
+        raise HTTPException(404, "알 수 없는 종류예요.")
+    import random  # noqa: PLC0415
+    pool = _example_pool(db, kind)
+    # 광고·순위가 아니라 예시: 날마다, 사람마다 다른 12개
+    picks = random.Random(f"{today()}:{user.id}:{kind}").sample(pool, min(12, len(pool)))
+    return {"label": EXAMPLES[kind]["label"], "products": picks}
 
 
 def _memories(db: Session, user: User) -> list[str]:

@@ -93,6 +93,7 @@ def test_step_examples(client):
     from app.models import Product
     from tests.test_api import signup
     headers = signup(client, "examples1")
+    routine._example_cache.clear()
     with SessionLocal() as db:
         db.add_all([
             Product(name="데일리 선크림", brand="A사", status="approved", source="mfds", description="[식약처]\n기능: 자외선 차단 SPF50+ PA4\n사용법: 외출 전 바른다"),
