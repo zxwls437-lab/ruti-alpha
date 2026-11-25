@@ -141,6 +141,18 @@ class MfdsRecord(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class ErrorLog(Base):
+    """서버 오류(500)와 사용자 화면(브라우저·앱)에서 난 자바스크립트 오류. 개인정보는 남기지 않는다(경로·메시지만)."""
+    __tablename__ = "error_logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(10))            # server | client
+    path: Mapped[str] = mapped_column(String(200), default="")
+    message: Mapped[str] = mapped_column(String(500), default="")
+    count: Mapped[int] = mapped_column(Integer, default=1)   # 같은 오류는 한 줄로 묶어 횟수만 센다
+    first_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
 class ScanResult(Base):
     """전성분 분석 기록. 사진은 저장하지 않고 인식된 성분 목록과 분석 결과만 남긴다."""
     __tablename__ = "scan_results"

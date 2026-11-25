@@ -56,6 +56,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="RUTI API", version="0.5.0", lifespan=lifespan)
+from . import errors  # noqa: E402
+app.include_router(errors.router)
 app.include_router(legal.router)
 app.include_router(datasync.router)
 app.include_router(admin_users.router)
@@ -71,7 +73,11 @@ app.include_router(blocks.router)
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as e:  # 처리 못 한 오류: 기록하고 그대로 올려 보낸다 (기본 500 응답)
+        errors.record("server", request.url.path, f"{type(e).__name__}: {e}")
+        raise
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")

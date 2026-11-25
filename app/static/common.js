@@ -1,4 +1,14 @@
 // 공통: 토큰 저장, API 호출, 안전한 DOM 생성
+// 화면 오류 자동 보고 (한 화면에서 최대 5건, 개인정보 없이 경로·메시지만) — 고객이 말하지 않아도 오류를 알 수 있게
+(function reportErrors(){
+  let sent = 0;
+  const send = msg => {
+    if (sent++ >= 5 || location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;
+    try { navigator.sendBeacon('/client-error', new Blob([JSON.stringify({path: location.pathname, message: String(msg).slice(0, 1500)})], {type: 'application/json'})); } catch {}
+  };
+  window.addEventListener('error', e => send(`${e.message} @${(e.filename || '').split('/').pop()}:${e.lineno}`));
+  window.addEventListener('unhandledrejection', e => { const r = e.reason; if (r && r.status) return; send('promise: ' + (r && r.message || r)); });
+})();
 const RUTI = {
   get token(){ try { return localStorage.getItem('ruti_token') || ''; } catch { return ''; } },
   set token(v){

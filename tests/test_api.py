@@ -375,3 +375,16 @@ def test_display_names(client):
     assert "라운드랩 약콩세럼" in names and "라운드랩 1025독도선크림" in names
     # 붙여 쓴 원래 이름으로도 그대로 찾아진다
     assert client.get("/products/find?q=약콩세럼", headers=headers).json()["products"][0]["name"] == "라운드랩 약콩세럼"
+
+
+def test_error_log(client):
+    from tests.conftest import make_admin
+    admin = make_admin(client, "erradmin")
+    for _ in range(2):
+        assert client.post("/client-error", json={"path": "/scan?x=1", "message": "TypeError: x is null user@mail.com 01012345678"}).status_code == 204
+    errs = client.get("/admin/errors", headers=admin).json()["errors"]
+    assert len(errs) == 1 and errs[0]["count"] == 2 and errs[0]["path"] == "/scan"
+    assert "mail.com" not in errs[0]["message"] and "01012345678" not in errs[0]["message"]
+    assert client.get("/admin/errors", headers=signup(client, "plainerr1")).status_code == 403
+    client.delete("/admin/errors", headers=admin)
+    assert client.get("/admin/errors", headers=admin).json()["errors"] == []
