@@ -4,14 +4,14 @@
 <style>
 .chatwrap{display:flex;flex-direction:column;gap:8px;height:calc(100dvh - 150px);min-height:420px}
 body.in-app .chatwrap{height:calc(100dvh - 90px)}
-.chathead{display:flex;align-items:center;gap:8px}.chathead .skinbar{flex:1;min-width:0}
+.chathead{display:flex;align-items:center;gap:8px}.chathead .skinbar{flex:1;min-width:0;flex-wrap:nowrap;overflow:hidden}.chathead .skinbar #skinChips{flex-wrap:nowrap;overflow:hidden}.chathead .skinbar b{flex:0 0 auto}
 .skinbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;color:var(--text);padding:6px 0;min-height:44px;font-weight:400;text-align:left}
 .skinbar b{color:var(--brand);font-size:14px}.skinbar .tag{margin:0;background:var(--card);border:1px solid var(--line);color:var(--text);font-size:13px;padding:4px 10px}
 button.small{min-height:36px;padding:4px 12px;font-size:13px}
 #log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px}
-.msg{max-width:85%;padding:11px 15px;border-radius:18px;white-space:pre-wrap;line-height:1.6}
+.msg{max-width:88%;padding:11px 15px;border-radius:18px;white-space:pre-wrap;line-height:1.6}
 .msg.user{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:6px}
-.msg.assistant{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
+.msg.assistant{max-width:94%;align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
 .msg.warn{background:var(--warn-bg)}
 .saved{align-self:flex-start;font-size:12px;color:var(--brand);background:var(--soft);padding:5px 12px;border-radius:14px}
 .prod{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px}
@@ -37,7 +37,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
   <div class="chatwrap hidden" id="app">
     <div class="chathead">
       <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChips" class="chip-row" style="margin:0"></span><b>수정</b></button>
-      <button class="ghost small" id="clear" type="button">대화 지우기</button>
+      <button class="ghost small" id="clear" type="button" aria-label="대화 지우기" title="대화 지우기">🗑 지우기</button>
     </div>
     <div id="log" aria-live="polite"></div>
     <div class="suggest" id="suggest"></div>

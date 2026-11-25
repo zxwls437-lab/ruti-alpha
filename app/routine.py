@@ -233,7 +233,12 @@ def _match_products(rec: dict, items: list[dict]) -> None:
     """추천 단계마다 내 화장대에서 맞는 제품을 붙인다."""
     for slot in ("am", "pm"):
         for st in rec[slot]:
-            st["mine"] = [{"id": i["id"], "product_name": i["product_name"]} for i in items if i["step"] == st["step"] and slot in i["slots"]]
+            # 세럼처럼 '어떤 성분'이 핵심인 단계만 확인 (세안의 '약산성' 같은 건 성분명이 아니다)
+            wanted = [normalize(f) for f in st["look_for"]] if st["step"] in ("serum", "essence") else []
+            st["mine"] = [{"id": i["id"], "product_name": i["product_name"],
+                           # 추천 성분이 실제로 들어 있는지 (같은 '세럼' 단계라도 레티놀 세럼은 보습 세럼이 아니다)
+                           "fits": not wanted or any(w in normalize(n) for w in wanted for n in i["ingredients"])}
+                          for i in items if i["step"] == st["step"] and slot in i["slots"]]
 
 
 def _view(db: Session, user: User) -> dict:

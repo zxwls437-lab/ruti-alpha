@@ -346,3 +346,16 @@ def test_find_products_by_name(client):
         assert [p["name"] for p in client.get(f"/products/find?q={q}", headers=headers).json()["products"]][:1] == ["라운드랩독도토너"], q
     assert client.get("/products/find?q=독도 선크림", headers=headers).json()["products"] == []
     assert client.get("/products/find?q=a", headers=headers).json()["products"] == []
+
+
+def test_admin_reset_password(client):
+    from tests.conftest import make_admin
+    admin = make_admin(client, "resetadmin")
+    user = signup(client, "forgetful1")
+    assert client.post("/admin/users/forgetful1/reset-password", headers=user).status_code == 403
+    r = client.post("/admin/users/forgetful1/reset-password", headers=admin).json()
+    temp = r["temp_password"]
+    assert client.get("/auth/me", headers=user).status_code == 401  # 기존 로그인은 끊김
+    assert client.post("/auth/login", json={"username": "forgetful1", "password": "password123"}).status_code == 401
+    assert client.post("/auth/login", json={"username": "forgetful1", "password": temp}).status_code == 200
+    assert client.post("/admin/users/nobody/reset-password", headers=admin).status_code == 404

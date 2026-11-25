@@ -2,16 +2,17 @@
 
 접속자 수는 로그인한 사용자가 마지막으로 RUTI를 쓴 시각(users.last_seen_at, 1분 단위)으로 센다.
 """
+import secrets
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, or_, select
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from .db import get_db, utcnow
-from .models import ScanResult, User
+from .models import AuthSession, ScanResult, User
 from .plans import is_plus, today_start_utc
-from .security import require_admin
+from .security import hash_password, require_admin
 
 router = APIRouter(prefix="/admin", tags=["관리자 회원"])
 ONLINE_MINUTES = 5
@@ -48,3 +49,19 @@ def list_users(q: str = "", limit: int = 200, _admin: User = Depends(require_adm
         "last_seen_at": u.last_seen_at.isoformat() if u.last_seen_at else None,
         "online": bool(u.last_seen_at and u.last_seen_at >= online_since), "scans": scans.get(u.id, 0),
     } for u in users]}
+
+
+@router.post("/users/{username}/reset-password")
+def reset_password(username: str, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    """비밀번호를 잊은 회원(고객센터 문의)에게 임시 비밀번호를 만들어 준다. 그 회원의 모든 로그인은 끊는다.
+    임시 비밀번호는 이 응답에서 한 번만 보이며 저장하지 않는다."""
+    user = db.scalar(select(User).where(User.username == username.strip().lower()))
+    if not user:
+        raise HTTPException(404, "그런 아이디가 없어요.")
+    if user.is_admin and user.id != admin.id:
+        raise HTTPException(403, "다른 관리자의 비밀번호는 여기서 바꿀 수 없어요.")
+    temp = "ruti-" + secrets.token_urlsafe(6)
+    user.password_hash = hash_password(temp)
+    db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    db.commit()
+    return {"username": user.username, "temp_password": temp}

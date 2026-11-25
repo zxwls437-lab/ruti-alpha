@@ -24,7 +24,7 @@
 .ing.red{border-color:#e6a1a6}.ing.orange{border-color:#e9c27e}
 .ing .head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ing .no{color:var(--muted);font-size:12px;min-width:22px}
 .ing details{margin-top:6px;font-size:13px;color:var(--muted)}.ing summary{cursor:pointer}
-.t{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600}
+.t{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600;white-space:nowrap;flex-shrink:0}
 .t.red{background:#FBE7E3;color:#A44A3F}.t.orange{background:#FCF1DE;color:#84601F}.t.green{background:var(--soft);color:var(--brand)}.t.gray{background:var(--bg);color:var(--muted)}
 @media (prefers-color-scheme:dark){.t.red{background:#4a1d20;color:#ff9aa1}.t.orange{background:#46331a;color:#ffc874}}
 .verdict{border-radius:16px;padding:16px;background:var(--soft)}
@@ -384,7 +384,7 @@ function productSheet(p){
 $('usageBtn').addEventListener('click', () => current && RUTI.usage.open({name: current.product_name || '이 제품'}));
 async function loadHistory(){
   const {scans} = await api('/scan/history');
-  const V = {good: ['green', '잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '맞지 않을 수 있어요']};
+  const V = {good: ['green', '✓ 잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '주의']};
   $('history').replaceChildren(...scans.filter(s => s.summary).slice(0, 6).map(s => el('button', {type: 'button', class: 'hist', onclick: async () => showResult(await api('/scan/' + s.id))},
     el('span', {class: 'hist-name'}, s.product_name || '이름 없는 제품'),
     V[s.level] ? el('span', {class: 't ' + V[s.level][0]}, V[s.level][1]) : el('span', {class: 'muted'}, `성분 ${s.summary.total ?? 0}개`))));

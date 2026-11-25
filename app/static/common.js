@@ -59,6 +59,23 @@ const RUTI = {
       }}), RUTI.el('b', {}, '전체 동의')),
       ...RUTI.consentBoxes());
     signupBtn.closest('.row').before(extra);
+    // 처음 온 사람에게: 무엇을 해 주는 앱인지 먼저 (가입부터 하라고 하면 떠난다)
+    if (!form.querySelector('.welcome') && location.pathname !== '/admin') {
+      const pts = [['📸', '성분표를 찍으면', '내 피부에 맞는지 바로 알려줘요'], ['🎬', '왜 안 맞는지', '그림으로 쉽게 보여줘요'],
+                   ['🗓', '아침·저녁 루틴을', '내 피부에 맞게 짜 줘요']];
+      form.prepend(RUTI.el('div', {class: 'welcome'}, RUTI.el('div', {class: 'welcome-title'}, '내 피부를 아는 화장대, RUTI'),
+        ...pts.map(([i, b, t]) => RUTI.el('div', {class: 'welcome-pt'}, RUTI.el('span', {class: 'welcome-ic'}, i), RUTI.el('span', {}, RUTI.el('b', {}, b), ' ' + t))),
+        RUTI.el('div', {class: 'welcome-note'}, '무료 · 가입 30초 · 사진은 분석 후 바로 지워요')));
+    }
+    if (!form.querySelector('.forgot')) {
+      err.after(RUTI.el('button', {type: 'button', class: 'forgot', onclick: async () => {
+        let email = '';
+        try { email = (await (await fetch('/app-info')).json()).contact_email || ''; } catch { /* 없으면 안내만 */ }
+        RUTI.sheet(RUTI.el('h2', {}, '비밀번호를 잊으셨나요?'),
+          RUTI.el('p', {class: 'muted', style: 'line-height:1.6'}, '아이디와 가입할 때 쓴 이름을 고객센터로 보내 주세요. 본인 확인 후 임시 비밀번호를 알려드려요.'),
+          email ? RUTI.el('a', {class: 'sheet-save', style: 'display:block;text-align:center;text-decoration:none', href: `mailto:${email}?subject=${encodeURIComponent('[RUTI] 비밀번호 찾기')}&body=${encodeURIComponent('아이디:\n가입 이름:\n')}`}, '📮 ' + email + ' 로 보내기') : null);
+      }}, '비밀번호를 잊었어요'));
+    }
     const done = user => {
       form.reset(); extra.classList.add('hidden'); signupBtn.textContent = '회원가입';
       if (user && user.needs_consent && user.needs_consent.length) form.classList.add('hidden');

@@ -286,10 +286,19 @@ async function loadVisitors(){
 async function loadUsers(){
   const {users} = await api('/admin/users?q=' + encodeURIComponent($('userSearch').value.trim()));
   const td = (t, th) => el(th ? 'th' : 'td', {style: 'padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap'}, t);
-  $('userTable').replaceChildren(el('tr', {}, ...['아이디 (A→Z)', '이름', '닉네임', '요금제', '분석', '마지막 접속', '가입일'].map(h => td(h, true))),
+  $('userTable').replaceChildren(el('tr', {}, ...['아이디 (A→Z)', '이름', '닉네임', '요금제', '분석', '마지막 접속', '가입일', ''].map(h => td(h, true))),
     ...users.map(u => el('tr', {}, td((u.online ? '🟢 ' : '') + u.username + (u.is_admin ? ' (관리자)' : '')), td(u.name || '-'), td(u.nickname || '-'),
-      td(u.plan === 'plus' ? 'Plus' : '무료'), td(String(u.scans)), td(ago(u.last_seen_at)), td(u.created_at.slice(0, 10)))));
+      td(u.plan === 'plus' ? 'Plus' : '무료'), td(String(u.scans)), td(ago(u.last_seen_at)), td(u.created_at.slice(0, 10)),
+      td(u.is_admin ? '' : el('button', {type: 'button', class: 'ghost small', onclick: () => resetPw(u.username)}, '비번 초기화')))));
   if (!users.length) $('userTable').replaceChildren(el('tr', {}, td('찾는 회원이 없어요.')));
+}
+async function resetPw(username){
+  if (!await RUTI.ask(`${username} 비밀번호를 초기화할까요?`, '본인 확인(가입 이름·닉네임 등)을 먼저 해 주세요. 임시 비밀번호는 한 번만 보여요.', '초기화')) return;
+  try {
+    const r = await api(`/admin/users/${encodeURIComponent(username)}/reset-password`, {method: 'POST'});
+    RUTI.sheet(el('h2', {}, '임시 비밀번호'), el('p', {class: 'muted'}, `${r.username} 회원에게 전달하고, 로그인 후 내 정보 → 비밀번호에서 바꾸도록 안내해 주세요.`),
+      el('p', {style: 'font-size:22px;font-weight:800;letter-spacing:.5px;user-select:all'}, r.temp_password));
+  } catch (err) { RUTI.toast(err.message); }
 }
 $('userSearchBtn').addEventListener('click', loadUsers);
 $('userSearch').addEventListener('keydown', e => { if (e.key === 'Enter') loadUsers(); });

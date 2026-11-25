@@ -114,3 +114,13 @@ def test_step_examples(client):
     # 추천 단계에 예시 종류가 붙는다
     rec = client.get("/routine/today", headers=headers).json()["recommendation"]
     assert next(s for s in rec["am"] if s["step"] == "sunscreen")["examples"] in ("sun", "sun_mild")
+
+
+def test_mine_fits_only_with_recommended_ingredient():
+    rec = {"am": [{"step": "serum", "look_for": ["히알루론산"]}, {"step": "cleanser", "look_for": ["약산성"]}], "pm": []}
+    items = [{"id": 1, "product_name": "레티놀 세럼", "step": "serum", "slots": ["am"], "ingredients": ["정제수", "레티놀"]},
+             {"id": 2, "product_name": "수분 세럼", "step": "serum", "slots": ["am"], "ingredients": ["정제수", "소듐하이알루로네이트", "히알루론산"]},
+             {"id": 3, "product_name": "폼", "step": "cleanser", "slots": ["am"], "ingredients": ["정제수"]}]
+    routine._match_products(rec, items)
+    assert [(m["product_name"], m["fits"]) for m in rec["am"][0]["mine"]] == [("레티놀 세럼", False), ("수분 세럼", True)]
+    assert rec["am"][1]["mine"][0]["fits"] is True

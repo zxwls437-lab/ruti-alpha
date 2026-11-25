@@ -117,7 +117,9 @@ function render(){
   $('rec').replaceChildren(...rec[slot].map(st => el('div', {class: 'rec-step'}, el('div', {style: 'flex:1;min-width:0'},
     el('b', {}, st.title), el('p', {}, st.why),
     st.look_for.length ? el('div', {class: 'chip-row', style: 'margin:4px 0 0'}, ...st.look_for.map(f => el('span', {class: 'tag'}, f))) : null,
-    el('div', {class: 'mine ' + (st.mine.length ? 'yes' : 'no')}, st.mine.length ? '✓ 내 제품: ' + st.mine.map(m => m.product_name).join(', ') : '아직 이 단계 제품이 없어요'),
+    (() => { const fit = st.mine.filter(m => m.fits), other = st.mine.filter(m => !m.fits);
+      return el('div', {class: 'mine ' + (fit.length ? 'yes' : 'no')}, fit.length ? '✓ 내 제품: ' + fit.map(m => m.product_name).join(', ')
+        : other.length ? `내 ${other.map(m => m.product_name).join(', ')}에는 추천 성분이 없어요` : '아직 이 단계 제품이 없어요'); })(),
     el('div', {style: 'display:flex;gap:14px;flex-wrap:wrap'},
       el('button', {type: 'button', class: 'linkish', onclick: () => RUTI.usage.open({category: usageKind(st)})}, '▶ 이렇게 발라요'),
       st.examples ? el('button', {type: 'button', class: 'linkish', onclick: () => showExamples(st)}, '🔎 제품 예시') : null)))));
