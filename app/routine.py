@@ -66,7 +66,8 @@ def item_view(v: VanityItem) -> dict:
     slots = v.slots or guess_slots(step, ings)
     return {"id": v.id, "product_name": v.product_name, "step": step, "step_label": STEPS.get(step, "기타"),
             "slots": [s for s in slots.split(",") if s in ("am", "pm")], "guessed": not v.step,
-            "retinoid": _has_group(ings, "retinoid"), "exfoliant": _has_group(ings, "exfoliant"), "ingredients": ings}
+            "retinoid": _has_group(ings, "retinoid"), "exfoliant": _has_group(ings, "exfoliant"), "ingredients": ings,
+            "no_ingredients": not ings}
 
 
 def today() -> str:
@@ -249,7 +250,7 @@ def _view(db: Session, user: User) -> dict:
     checks = {(c.slot, c.item_id) for c in db.scalars(select(RoutineCheck).where(RoutineCheck.user_id == user.id, RoutineCheck.day == day))}
     routine = {}
     for slot in ("am", "pm"):
-        routine[slot] = [{**{k: i[k] for k in ("id", "product_name", "step", "step_label", "guessed")}, "done": (slot, i["id"]) in checks}
+        routine[slot] = [{**{k: i[k] for k in ("id", "product_name", "step", "step_label", "guessed", "no_ingredients")}, "done": (slot, i["id"]) in checks}
                          for i in sorted(items, key=order) if slot in i["slots"]]
     memories = _memories(db, user)
     # 제품끼리 조합 점검(내 화장대 규칙) + 선크림 빠짐
@@ -270,7 +271,7 @@ def _view(db: Session, user: User) -> dict:
     since = (datetime.now(KST) - timedelta(days=6)).strftime("%Y-%m-%d")
     logs = [{"day": g.day, "mood": g.mood, "note": g.note} for g in db.scalars(
         select(SkinLog).where(SkinLog.user_id == user.id, SkinLog.day >= since).order_by(SkinLog.day))]
-    return {"today": day, "routine": routine, "items": [{k: i[k] for k in ("id", "product_name", "step", "step_label", "slots", "guessed")} for i in items],
+    return {"today": day, "routine": routine, "items": [{k: i[k] for k in ("id", "product_name", "step", "step_label", "slots", "guessed", "no_ingredients")} for i in items],
             "warnings": warnings, "recommendation": rec, "logs": logs, "steps": STEPS,
             "can_log": account.has_sensitive_consent(db, user)}
 

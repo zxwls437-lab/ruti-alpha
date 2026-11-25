@@ -106,6 +106,7 @@ class VanityIn(BaseModel):
     scan_id: int | None = None
     product_name: str = Field(default="", max_length=200)
     text: str = Field(default="", max_length=10_000, description="scan_id 없이 전성분 글자로 추가할 때")
+    name_only: bool = Field(default=False, description="성분 없이 이름만 담기 (루틴 체크용, 성분은 나중에 찍어서 채움)")
 
 
 @router.post("", status_code=201)
@@ -121,12 +122,24 @@ def add_to_vanity(payload: VanityIn, user: User = Depends(current_user), db: Ses
         product = payload.product_name.strip() or scan_row.product_name or "이름 없는 제품"
         if db.scalar(select(VanityItem).where(VanityItem.user_id == user.id, VanityItem.scan_id == scan_row.id)):
             raise HTTPException(409, "이미 화장대에 담은 제품이에요.")
+    elif payload.name_only:
+        product = payload.product_name.strip()
+        if len(product) < 2:
+            raise HTTPException(422, "제품 이름을 2글자 이상 적어 주세요.")
+        # 다른 사용자가 공유한 전성분이 있으면 그걸 쓴다
+        from .models import ProductIngredientList  # noqa: PLC0415
+        from .scan import name_key  # noqa: PLC0415
+        shared = db.scalar(select(ProductIngredientList).where(ProductIngredientList.name_key == name_key("", product))
+                           .order_by(ProductIngredientList.confirmations.desc()).limit(1))
+        names = json.loads(shared.ingredients) if shared else []
+        if db.scalar(select(VanityItem).where(VanityItem.user_id == user.id, VanityItem.product_name == product[:200])):
+            raise HTTPException(409, "이미 화장대에 담은 제품이에요.")
     else:
         names = split_ingredients(payload.text)
         product = payload.product_name.strip()
         if not names or not product:
             raise HTTPException(422, "제품 이름과 전성분을 입력해 주세요.")
-    if not names:
+    if not names and not payload.name_only:
         raise HTTPException(422, "전성분 정보가 없는 제품이에요.")
     db.add(VanityItem(user_id=user.id, product_name=product[:200], ingredients=json.dumps(names, ensure_ascii=False), scan_id=payload.scan_id))
     db.commit()

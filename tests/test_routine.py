@@ -124,3 +124,14 @@ def test_mine_fits_only_with_recommended_ingredient():
     routine._match_products(rec, items)
     assert [(m["product_name"], m["fits"]) for m in rec["am"][0]["mine"]] == [("레티놀 세럼", False), ("수분 세럼", True)]
     assert rec["am"][1]["mine"][0]["fits"] is True
+
+
+def test_add_by_name_only(client):
+    headers = signup(client, "nameonly1")
+    assert client.post("/vanity", json={"product_name": "라운드랩 독도 토너", "name_only": True}, headers=headers).status_code == 201
+    assert client.post("/vanity", json={"product_name": "라운드랩 독도 토너", "name_only": True}, headers=headers).status_code == 409
+    assert client.post("/vanity", json={"product_name": "a", "name_only": True}, headers=headers).status_code == 422
+    d = client.get("/routine/today", headers=headers).json()
+    item = d["items"][0]
+    assert item["step"] == "toner" and item["no_ingredients"] is True and item["slots"]
+    assert d["routine"]["am"][0]["product_name"] == "라운드랩 독도 토너"

@@ -33,6 +33,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .empty{text-align:center;padding:10px 0}
 .linkish{background:none;color:var(--brand);padding:4px 0;min-height:36px;font-weight:600;font-size:13.5px}.empty p{color:var(--muted);margin:0 0 10px}
 .ex-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:6px 0;color:var(--text);min-height:44px}.ex-row span{font-size:12.5px;color:var(--muted)}
+.noing{display:block;font-size:12px;color:#84601F;text-decoration:none;margin-top:2px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -71,8 +72,8 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
     </section>
 
     <section class="card">
-      <div class="row" style="justify-content:space-between"><h2 style="margin:0">내 화장대</h2><a href="/scan" class="ghost small" style="text-decoration:none;font-weight:600">+ 제품 추가</a></div>
-      <p class="muted" style="margin:6px 0 4px">성분표를 찍고 '내 화장대에 담기'를 누르면 여기에 들어와요.</p>
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">내 화장대</h2><button type="button" class="ghost small" id="addProduct" style="font-weight:700">+ 제품 추가</button></div>
+      <p class="muted" style="margin:6px 0 4px">이름만 적어 담거나, 뒷면을 찍어 담을 수 있어요.</p>
       <div id="vanity" class="vlist"></div>
     </section>
   </div>
@@ -106,7 +107,8 @@ function render(){
         i.conflict ? el('span', {class: 'warnbadge'}, `'${i.conflict}'와 맞지 않을 수 있어요`) : null),
       el('button', {type: 'button', class: 'more', 'aria-label': i.product_name + ' 설정', onclick: () => editItem(i.id)}, '⋯'));
   }) : [el('div', {class: 'empty'}, el('p', {}, slot === 'am' ? '아침 루틴이 비어 있어요.' : '저녁 루틴이 비어 있어요.'),
-      el('p', {}, '아래 추천 루틴을 참고해서, 쓰는 제품을 화장대에 담아 보세요.'))]));
+      el('p', {}, '쓰는 제품 이름만 적으면 바로 루틴이 돼요.'),
+      el('button', {type: 'button', style: 'margin-top:8px', onclick: addProductSheet}, '+ 쓰는 제품 담기'))]));
   $('warnings').replaceChildren(...data.warnings.map(w => el('div', {class: 'warn'}, el('b', {}, '⚠️ ' + w.title), el('div', {}, w.detail),
     w.products.length ? el('div', {class: 'muted', style: 'font-size:12.5px'}, w.products.join(' · ')) : null,
     w.explainer ? el('button', {type: 'button', class: 'ghost small', style: 'margin-top:6px', onclick: () => RUTI.explainer.open([{scenario: w.explainer, ingredient: '레티놀 + 각질 제거', memo: '', personal: false}], {memories: [], products: w.products})}, '▶ 그림으로 보기') : null)));
@@ -140,8 +142,40 @@ function render(){
   }));
   // 화장대
   $('vanity').replaceChildren(...(data.items.length ? data.items.map(i => el('div', {class: 'row'},
-    el('span', {style: 'min-width:0'}, i.product_name, el('span', {class: 'muted', style: 'margin-left:6px;font-size:12px'}, `${i.step_label} · ${i.slots.map(s => s === 'am' ? '아침' : '저녁').join('·') || '안 씀'}`)),
+    el('span', {style: 'min-width:0'}, i.product_name, el('span', {class: 'muted', style: 'margin-left:6px;font-size:12px'}, `${i.step_label} · ${i.slots.map(s => s === 'am' ? '아침' : '저녁').join('·') || '안 씀'}`),
+      i.no_ingredients ? el('a', {class: 'noing', href: '/scan'}, '성분 없음 · 뒷면 찍으면 궁합까지 봐요') : null),
     el('button', {type: 'button', class: 'ghost small', style: 'flex:0 0 auto', onclick: () => editItem(i.id)}, '설정'))) : [el('p', {class: 'muted'}, '아직 담은 제품이 없어요.')]));
+}
+
+// 제품 추가: 이름만으로 바로 담기 (뒷면 찍기는 나중에) — 제품마다 다 찍어야 하면 루틴 만들기를 포기한다
+function addProductSheet(){
+  const input = el('input', {placeholder: '제품 이름 (예: 라운드랩 독도 토너)', maxLength: 100, autocomplete: 'off'});
+  const list = el('div', {});
+  const err = el('div', {class: 'error'});
+  let s, timer = 0;
+  const add = async name => {
+    err.textContent = '';
+    try { await api('/vanity', {method: 'POST', body: {product_name: name, name_only: true}}); data = await api('/routine/today'); s.close(); render(); RUTI.toast(`담았어요 · ${name}`); }
+    catch (e) { err.textContent = e.message; }
+  };
+  input.addEventListener('input', () => {
+    clearTimeout(timer); const q = input.value.trim();
+    if (q.length < 2) { list.replaceChildren(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const {products} = await api('/products/find?q=' + encodeURIComponent(q) + '&limit=6');
+        if (input.value.trim() !== q) return;
+        list.replaceChildren(...products.map(p => el('button', {type: 'button', class: 'ex-row', onclick: () => add(p.name)},
+          el('b', {}, p.name), el('span', {}, p.ingredients.length ? '성분 정보 있음' : (p.functions || '')))));
+      } catch { /* 검색 실패해도 이름으로 담기는 된다 */ }
+    }, 300);
+  });
+  s = RUTI.sheet(el('h2', {style: 'margin:4px 0 4px'}, '제품 추가'),
+    el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13.5px'}, '이름만 적어도 루틴에 담겨요. 뒷면 성분표를 찍으면 내 피부와 궁합까지 볼 수 있어요.'),
+    input, list, err,
+    el('button', {type: 'button', class: 'sheet-save', onclick: () => input.value.trim().length >= 2 ? add(input.value.trim()) : (err.textContent = '제품 이름을 2글자 이상 적어 주세요.')}, '이 이름으로 담기'),
+    el('a', {href: '/scan', class: 'linkish', style: 'display:block;text-align:center;margin-top:6px'}, '📸 뒷면 찍어서 담기'));
+  setTimeout(() => input.focus(), 50);
 }
 
 // 추천 단계 → 식약처에 신고된 조건 맞는 제품 예시
@@ -195,6 +229,7 @@ function editItem(id){
   const overlay = el('div', {class: 'sheet-overlay', onclick: e => { if (e.target === overlay) close(); }}, sheet);
   document.body.append(overlay); document.body.style.overflow = 'hidden';
 }
+$('addProduct').addEventListener('click', addProductSheet);
 $('skinEdit').addEventListener('click', () => RUTI.skin.open(async () => { data = await api('/routine/today'); render(); }));
 
 async function start(){
