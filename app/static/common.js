@@ -67,8 +67,8 @@ const RUTI = {
         ...pts.map(([i, b, t]) => RUTI.el('div', {class: 'welcome-pt'}, RUTI.el('span', {class: 'welcome-ic'}, i), RUTI.el('span', {}, RUTI.el('b', {}, b), ' ' + t))),
         RUTI.el('div', {class: 'welcome-note'}, '무료 · 가입 30초 · 사진은 분석 후 바로 지워요')));
     }
-    if (!form.querySelector('.forgot')) {
-      err.after(RUTI.el('button', {type: 'button', class: 'forgot', onclick: async () => {
+    if (!form.querySelector('.forgot-pw')) {
+      err.after(RUTI.el('button', {type: 'button', class: 'forgot forgot-pw', onclick: async () => {
         let email = '';
         try { email = (await (await fetch('/app-info')).json()).contact_email || ''; } catch { /* 없으면 안내만 */ }
         RUTI.sheet(RUTI.el('h2', {}, '비밀번호를 잊으셨나요?'),
@@ -76,8 +76,29 @@ const RUTI = {
           email ? RUTI.el('a', {class: 'sheet-save', style: 'display:block;text-align:center;text-decoration:none', href: `mailto:${email}?subject=${encodeURIComponent('[RUTI] 비밀번호 찾기')}&body=${encodeURIComponent('아이디:\n가입 이름:\n')}`}, '📮 ' + email + ' 로 보내기') : null);
       }}, '비밀번호를 잊었어요'));
     }
+    // 가입 모드: 제목·버튼을 가입에 맞게 바꾸고 로그인 버튼은 숨긴다 (두 버튼이 같이 있으면 헷갈림)
+    const loginBtn = form.querySelector('button[type=submit]');
+    const title = form.querySelector('h2');
+    const back = RUTI.el('button', {type: 'button', class: 'forgot hidden', onclick: () => setMode(false)}, '이미 계정이 있어요 · 로그인');
+    signupBtn.closest('.row').after(back);
+    const setMode = signup => {
+      extra.classList.toggle('hidden', !signup); loginBtn.classList.toggle('hidden', signup); back.classList.toggle('hidden', !signup);
+      signupBtn.textContent = signup ? '가입하기' : '회원가입';
+      signupBtn.classList.toggle('ghost', !signup);
+      if (title) title.textContent = signup ? '회원가입' : '로그인';
+      for (const x of form.querySelectorAll('.welcome, .forgot-pw')) x.classList.toggle('hidden', signup);
+      form.password.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+      if (signup) form.username.focus();
+    };
+    // 비밀번호 보기
+    const pw = form.password;
+    const eye = RUTI.el('button', {type: 'button', class: 'pw-eye', 'aria-label': '비밀번호 보기', onclick: () => {
+      const show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; eye.textContent = show ? '숨기기' : '보기';
+      eye.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+    }}, '보기');
+    const wrap = RUTI.el('div', {class: 'pw-wrap'}); pw.before(wrap); wrap.append(pw, eye);
     const done = user => {
-      form.reset(); extra.classList.add('hidden'); signupBtn.textContent = '회원가입';
+      form.reset(); setMode(false); pw.type = 'password'; eye.textContent = '보기';
       if (user && user.needs_consent && user.needs_consent.length) form.classList.add('hidden');
       RUTI.afterLogin(user, onReady);
     };
@@ -90,9 +111,7 @@ const RUTI = {
     });
     signupBtn.addEventListener('click', async () => {
       err.textContent = '';
-      if (extra.classList.contains('hidden')) {
-        extra.classList.remove('hidden'); signupBtn.textContent = '가입하기'; form.name.focus(); return;
-      }
+      if (extra.classList.contains('hidden')) { setMode(true); return; }
       const body = {username: form.username.value.trim(), password: form.password.value, name: form.name.value.trim(),
                     nickname: form.nickname.value.trim() || null, consents: RUTI.readConsents(extra)};
       try { const r = await RUTI.api('/auth/signup', {method: 'POST', body}); RUTI.token = r.token; done(r.user); }

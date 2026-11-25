@@ -467,7 +467,7 @@
     ui.close.focus();
     cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
   }
-  const label = it => it.scenario === 'combo' ? '같이 쓰기' : (it.scenario === 'limit' ? `${short(it.ingredient, 10)} (사용 기준)` : short(it.ingredient, 10));
+  const label = it => it.scenario === 'combo' ? '같이 쓰기' : (it.scenario === 'limit' ? `${short(it.ingredient, 10)} (사용 기준)` : (it.others && it.others.length ? `${short(it.ingredient, 8)} 외 ${it.others.length}개` : short(it.ingredient, 10)));
   // common.js의 RUTI(전역 const)에 붙인다. common.js 없이 쓰면 window.RUTI에 붙인다.
   const root = typeof RUTI !== 'undefined' ? RUTI : (window.RUTI = window.RUTI || {});
   root.explainer = {open, close, label};

@@ -239,10 +239,15 @@ def build_verdict(result: dict, memories: list[str], readability: str = "clear")
     reasons: list[str] = []
     conflicts, bans, limits = names("memory_conflict"), names("kr_ban"), names("kr_limit")
 
-    for name in conflicts[:2]:
+    # 같은 피부 정보(예: '향료에 민감해요')에 걸린 성분은 한 줄로 묶는다 (향료·리모넨·리날룰을 따로 세 번 말하지 않게)
+    by_memo: dict[str, list[str]] = {}
+    for name in conflicts:
         ko = next(((i.get("ingredient") or {}).get("name_ko", "") for i in items if i["input"] == name), "")
-        memo = matching_memo(name, memories, ko)
-        reasons.append(f"{name}{_josa(name, '이', '가')} 들어 있어요. '{memo}'라고 알려주셨어요." if memo else f"{name}{_josa(name, '이', '가')} 들어 있어요. 내 피부 정보와 맞지 않아요.")
+        by_memo.setdefault(matching_memo(name, memories, ko), []).append(name)
+    for memo, group in list(by_memo.items())[:2]:
+        shown = "·".join(group[:3]) + (f" 외 {len(group) - 3}개" if len(group) > 3 else "")
+        josa = _josa(shown, "이", "가")
+        reasons.append(f"{shown}{josa} 들어 있어요. '{memo}'라고 알려주셨어요." if memo else f"{shown}{josa} 들어 있어요. 내 피부 정보와 맞지 않아요.")
     if bans:
         reasons.append(f"국내 사용금지 성분과 이름이 같은 성분({', '.join(bans[:3])})이 있어요. 글자를 잘못 읽었을 수도 있으니 성분표를 확인해 주세요.")
     unknown_ratio = summary["unknown"] / summary["total"] if summary["total"] else 0
@@ -301,7 +306,12 @@ def build_explainers(items: list[dict], memories: list[str], level: str) -> list
         if (scenario, label) in seen:
             return
         seen.add((scenario, label))
-        out.append({"scenario": scenario, "ingredient": label, "memo": memo, "personal": personal})
+        # 같은 그림(시나리오)·같은 이유면 버튼 하나로 묶는다: '향료 외 2개'
+        same = next((x for x in out if x["scenario"] == scenario and x["memo"] == memo and scenario != "limit"), None)
+        if same:
+            same["others"].append(label)
+            return
+        out.append({"scenario": scenario, "ingredient": label, "memo": memo, "personal": personal, "others": []})
 
     for it in items:
         if "memory_conflict" in it["flags"]:

@@ -275,7 +275,16 @@ def test_verdict_memory_conflict_reason(client):
     assert v["level"] == "avoid" and v["title"] == "맞지 않을 수 있어요"
     assert v["reasons"][0] == "향료가 들어 있어요. '향료에 민감해요'라고 알려주셨어요."
     # 그림 설명: 충돌한 성분에 맞는 애니메이션 + 그 사람이 적은 피부 정보
-    assert v["explainers"] == [{"scenario": "fragrance", "ingredient": "향료", "memo": "향료에 민감해요", "personal": True}]
+    assert v["explainers"] == [{"scenario": "fragrance", "ingredient": "향료", "memo": "향료에 민감해요", "personal": True, "others": []}]
+
+
+def test_verdict_groups_same_memo():
+    item = lambda name, ko: {"input": name, "flags": ["memory_conflict"], "ingredient": {"name_ko": ko}}  # noqa: E731
+    r = {"items": [item("향료", "향료"), item("리모넨", "리모넨"), item("리날룰", "리날룰")],
+         "summary": {"total": 3, "unknown": 0}}
+    v = scan.build_verdict(r, ["향료에 민감해요"])
+    assert v["reasons"][0] == "향료·리모넨·리날룰이 들어 있어요. '향료에 민감해요'라고 알려주셨어요."
+    assert len(v["explainers"]) == 1 and v["explainers"][0]["others"] == ["리모넨", "리날룰"]
 
 
 def test_explainer_scenarios():
