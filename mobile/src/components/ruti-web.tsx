@@ -2,7 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { router, useFocusEffect } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, Platform, Pressable, Share, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation, type WebViewProps } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
@@ -109,7 +109,7 @@ export function RutiWeb({ tab }: { tab: TabName }) {
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
-      let msg: { type?: string; url?: string; am?: string | null; pm?: string | null } = {};
+      let msg: { type?: string; url?: string; am?: string | null; pm?: string | null; title?: string; text?: string } = {};
       try {
         msg = JSON.parse(e.nativeEvent.data);
       } catch {
@@ -117,6 +117,10 @@ export function RutiWeb({ tab }: { tab: TabName }) {
       }
       if (msg.type === 'auth') emitAuthChange(tab);
       if (msg.type === 'openExternal' && msg.url && /^https?:\/\//.test(msg.url)) Linking.openURL(msg.url).catch(() => {});
+      if (msg.type === 'share' && msg.text) {
+        const url = msg.url && /^https?:\/\//.test(msg.url) ? msg.url : '';
+        Share.share({ title: msg.title ?? 'RUTI', message: url ? `${msg.text}\n${url}` : msg.text }).catch(() => {});
+      }
       if (msg.type === 'reminders') {
         // 웹(루틴 화면)에서 고른 알림 시각을 폰 알림으로 건다. 결과를 웹에 돌려준다.
         applyReminders({ am: msg.am ?? null, pm: msg.pm ?? null })

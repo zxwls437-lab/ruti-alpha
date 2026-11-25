@@ -173,6 +173,13 @@ const RUTI = {
       s.overlay.addEventListener('dismiss', () => resolve(false));
     });
   },
+  // 공유: 휴대폰 공유창(웹) → 앱 안이면 앱의 공유창 → 안 되면 링크 복사
+  async share({title, text, url}){
+    if (RUTI.inApp && window.ReactNativeWebView) { RUTI.native({type: 'share', title, text, url}); return; }
+    if (navigator.share) { try { await navigator.share({title, text, url}); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(`${text}\n${url}`); RUTI.toast('복사했어요. 원하는 곳에 붙여 넣어 주세요'); }
+    catch { RUTI.toast('공유를 할 수 없는 환경이에요'); }
+  },
   toast(msg){
     const t = RUTI.el('div', {class: 'toast', role: 'status'}, msg);
     document.body.append(t); setTimeout(() => t.classList.add('out'), 2200); setTimeout(() => t.remove(), 2600);

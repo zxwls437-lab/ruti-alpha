@@ -102,6 +102,7 @@
       <p class="notice hidden" id="fromDb" style="margin:12px 0 0"></p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="ghost" id="toggleAll" type="button">전체 성분 보기</button><button class="ghost" id="askBtn">RUTI에게 물어보기</button></div>
       <button type="button" class="ghost" id="usageBtn" style="width:100%;margin-top:8px">▶ 이 제품 사용법 보기</button>
+      <button type="button" class="ghost" id="shareBtn" style="width:100%;margin-top:8px">↗ 결과 공유하기</button>
       <button type="button" id="vanityAdd" style="width:100%;margin-top:8px">내 화장대(루틴)에 담기</button>
       <div class="hidden" id="allIngredients" style="margin-top:12px">
         <div class="chips" id="chips"></div>
@@ -384,6 +385,13 @@ function productSheet(p){
     }}, '내 피부에 맞는지 보기') : el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: () => { s.close(); $('file').click(); }}, '뒷면 찍기'),
     el('button', {type: 'button', class: 'sk-redo', onclick: () => s.close()}, '닫기'));
 }
+$('shareBtn').addEventListener('click', () => {
+  if (!current) return;
+  const v = current.verdict || {}; const name = current.product_name || '이 화장품';
+  const word = {good: '잘 맞을 가능성이 높대요 🟢', check: '확인이 필요하대요 🟡', avoid: '나한테는 주의래요 🔴'}[v.level] || '분석해 봤어요';
+  // 내 피부 정보·성분 목록은 넣지 않는다 (공유는 결과 한 줄 + RUTI 소개만)
+  RUTI.share({title: 'RUTI 성분 분석', text: `RUTI로 '${name}' 성분표를 찍어 봤더니 ${word}\n내 피부에 맞는지 찍어서 바로 확인해 보세요.`, url: location.origin + '/?ref=share'});
+});
 $('usageBtn').addEventListener('click', () => current && RUTI.usage.open({name: current.product_name || '이 제품'}));
 async function loadHistory(){
   const {scans} = await api('/scan/history');
