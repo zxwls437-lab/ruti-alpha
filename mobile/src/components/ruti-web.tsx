@@ -168,11 +168,7 @@ export function RutiWeb({ tab }: { tab: TabName }) {
         onRenderProcessGone={() => setKey((k) => k + 1)}
         onContentProcessDidTerminate={() => ref.current?.reload()}
         startInLoadingState
-        renderLoading={() => (
-          <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: c.bg }]}>
-            <ActivityIndicator color={c.brand} />
-          </View>
-        )}
+        renderLoading={() => <Loading bg={c.bg} brand={c.brand} muted={c.muted} />}
         setSupportMultipleWindows={false}
         javaScriptEnabled
         domStorageEnabled
@@ -187,6 +183,21 @@ export function RutiWeb({ tab }: { tab: TabName }) {
         webviewDebuggingEnabled={__DEV__}
       />
     </SafeAreaView>
+  );
+}
+
+// 서버가 잠들어 있으면 첫 화면이 30초쯤 걸릴 수 있어서, 몇 초 지나면 이유를 알려준다 (멈춘 줄 알고 앱을 끄지 않게)
+function Loading({ bg, brand, muted }: { bg: string; brand: string; muted: string }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: bg }]}>
+      <ActivityIndicator color={brand} />
+      {slow ? <Text style={[styles.body, { color: muted }]}>RUTI를 깨우는 중이에요{'\n'}처음엔 30초쯤 걸릴 수 있어요</Text> : null}
+    </View>
   );
 }
 
