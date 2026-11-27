@@ -117,6 +117,22 @@ def _tokens(text: str) -> set[str]:
     return {t for t in re.split(r"[\s,./()\[\]!?~·]+", text.lower()) if len(t) >= 2}
 
 
+# 특정 대상용 제품: 그 대상이라고 말한 경우에만 추천한다 (임신 안 한 사람에게 매터니티 크림 X)
+AUDIENCES = {
+    "pregnancy": (("매터니티", "maternity", "임산부", "임부", "맘스", "튼살"), ("임신", "수유", "임산부", "출산")),
+    "baby": (("베이비", "baby", "유아", "아기", "키즈", "kids", "어린이", "주니어"), ("아기", "아이", "유아", "베이비", "아들", "딸", "어린이", "키즈")),
+    "men": (("옴므", "homme", "포맨", "포 맨", "남성", "for men", "맨즈"), ("남성", "남자", "남편", "아빠", "옴므")),
+}
+
+
+def audience_mismatch(p: dict, memories: list[str], message: str) -> bool:
+    """제품이 특정 대상(임산부·아기·남성)용인데 사용자가 그 대상이라고 말한 적이 없으면 True."""
+    name = f"{p.get('name', '')} {p.get('category', '')}".lower()
+    said = (message + " " + " ".join(memories)).lower()
+    return any(any(w in name for w in product_words) and not any(w in said for w in user_words)
+               for product_words, user_words in AUDIENCES.values())
+
+
 def conflicts_with_memories(p: dict, memories: list[str]) -> bool:
     """제품의 주요 성분 중 사용자가 '민감해요/안 맞아요'라고 한 성분(묶음 포함)이 있으면 True."""
     if not memories:
@@ -213,7 +229,8 @@ ERROR_MESSAGES = {
 
 def generate_answer(message: str, memories: list[str], products: list[dict], history: list[dict],
                     ingredients: list[dict] | None = None, review_stats: list[dict] | None = None, user_name: str = "") -> AIResult:
-    products = [p for p in products if not conflicts_with_memories(p, memories)]  # 내가 피해야 할 성분이 든 제품은 후보에서 뺀다
+    # 내가 피해야 할 성분이 든 제품, 나와 상관없는 대상(임산부·아기·남성)용 제품은 후보에서 뺀다
+    products = [p for p in products if not conflicts_with_memories(p, memories) and not audience_mismatch(p, memories, message)]
     selected = select_relevant_products(message, memories, products, env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 15))
     try:
         result = llm.chat(build_messages(message, memories, selected, history, ingredients, review_stats, user_name), purpose="chat",

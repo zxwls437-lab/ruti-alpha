@@ -205,7 +205,10 @@ def _example_pool(db: Session, kind: str) -> list[dict]:
     # 이름이 숫자 코드로 시작하는 것(시판명이 아닌 내부 코드)은 제외
     not_code = ~Product.name.op("~")("^[0-9]") if db.bind.dialect.name == "postgresql" else true()
     rows = db.scalars(select(Product).where(Product.status == PRODUCT_APPROVED, Product.source == SOURCE_MFDS, *conds, not_code)
-                      .order_by(Product.id.desc()).limit(300)).all()
+                      .order_by(Product.id.desc()).limit(400)).all()
+    # 예시에는 특정 대상(임산부·아기·남성)용 제품을 넣지 않는다
+    from .ai import audience_mismatch  # noqa: PLC0415
+    rows = [p for p in rows if not audience_mismatch({"name": p.name, "category": p.category}, [], "")][:300]
     pool = [{"id": p.id, "name": p.display_name or p.name, "brand": p.brand, "source": p.source, "functions": _desc_line(p.description, "기능:"),
              "usage": _desc_line(p.description, "사용법:"), "ingredients": []} for p in rows]
     random.Random(kind).shuffle(pool)
