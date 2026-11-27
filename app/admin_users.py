@@ -5,7 +5,7 @@
 import secrets
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -65,3 +65,12 @@ def reset_password(username: str, admin: User = Depends(require_admin), db: Sess
     db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
     db.commit()
     return {"username": user.username, "temp_password": temp}
+
+
+@router.get("/debug/client-ip")
+def debug_client_ip(request: Request, _admin: User = Depends(require_admin)):
+    """배포 환경에서 어떤 헤더에 진짜 접속 IP가 들어오는지 확인 (RUTI_CLIENT_IP_HEADER 설정용). 관리자 본인 요청의 값만 보여 준다."""
+    from .security import client_ip
+    names = ("x-forwarded-for", "cf-connecting-ip", "true-client-ip", "x-real-ip", "forwarded")
+    return {"used_for_rate_limit": client_ip(request), "client_host": request.client.host if request.client else None,
+            "headers": {n: request.headers.get(n) for n in names}}

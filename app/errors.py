@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from .db import SessionLocal, get_db, utcnow
 from .models import ErrorLog, User
-from .security import limiter, require_admin
+from .security import client_ip, limiter, require_admin
 
 router = APIRouter(tags=["오류 기록"])
 log = logging.getLogger("ruti")
@@ -50,7 +50,7 @@ class ClientError(BaseModel):
 
 @router.post("/client-error", status_code=204)
 def client_error(payload: ClientError, request: Request):
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip(request)
     if limiter.hit("client-error:" + ip, 20, 60):
         record("client", payload.path, payload.message)
 

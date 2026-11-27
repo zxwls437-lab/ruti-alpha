@@ -7,12 +7,12 @@ import time
 from collections import defaultdict, deque
 from datetime import timedelta
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from .config import env_int
+from .config import env, env_int
 from .db import get_db, utcnow
 from .models import AuthSession, User
 
@@ -96,6 +96,9 @@ class RateLimiter:
             return True
         now = time.monotonic()
         with self._lock:
+            if len(self._hits) > 50_000:  # 키를 바꿔 가며 보내는 요청으로 메모리가 끝없이 늘지 않게, 빈 기록은 정리
+                for k in [k for k, q in self._hits.items() if not q or now - q[-1] > 86_400]:
+                    del self._hits[k]
             q = self._hits[key]
             while q and now - q[0] > window_seconds:
                 q.popleft()
@@ -110,3 +113,56 @@ class RateLimiter:
 
 
 limiter = RateLimiter()
+
+
+# ---------- 접속한 사람의 IP ----------
+
+def client_ip(request: Request) -> str:
+    """요청 제한에 쓰는 IP.
+
+    기본은 uvicorn --proxy-headers가 정한 값(X-Forwarded-For의 맨 앞)인데, 이 값은 요청을 보내는 사람이 마음대로
+    적을 수 있다. 배포 환경의 프록시가 덮어써서 위조할 수 없는 헤더(예: cf-connecting-ip, true-client-ip)가
+    확인되면 RUTI_CLIENT_IP_HEADER에 그 이름을 넣는다. 확인은 관리자 GET /admin/debug/client-ip.
+    """
+    header = env("RUTI_CLIENT_IP_HEADER", "").strip().lower()
+    if header:
+        value = request.headers.get(header, "").split(",")[0].strip()
+        if value:
+            return value
+    return request.client.host if request.client else "unknown"
+
+
+# ---------- 요청 크기 제한 ----------
+
+class BodySizeLimit:
+    """너무 큰 요청 본문을 읽기 전에 413으로 거절한다 (큰 요청 몇 개로 서버 메모리를 다 쓰게 하는 공격 방지).
+    사진 분석(base64 최대 9MB)이 들어가도록 기본 10MB."""
+
+    def __init__(self, app, max_bytes: int | None = None):
+        self.app = app
+        self.max_bytes = max_bytes or env_int("RUTI_MAX_BODY_BYTES", 10_000_000)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        limit = self.max_bytes
+        length = dict(scope["headers"]).get(b"content-length", b"")
+        if length.isdigit() and int(length) > limit:
+            body = '{"detail":"요청이 너무 커요. 사진은 더 작게 줄여서 보내 주세요."}'.encode()
+            await send({"type": "http.response.start", "status": 413,
+                        "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode()),
+                                    (b"connection", b"close")]})
+            await send({"type": "http.response.body", "body": body})
+            return
+        received = 0
+
+        async def limited_receive():  # content-length 없이 나눠 보내는 요청도 받은 만큼 세어서 막는다
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    raise HTTPException(413, "요청이 너무 커요. 사진은 더 작게 줄여서 보내 주세요.")
+            return message
+
+        await self.app(scope, limited_receive, send)

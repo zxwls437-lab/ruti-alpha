@@ -5,7 +5,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, or_, select
@@ -16,7 +17,8 @@ from .config import env, env_bool, env_int
 from .db import SessionLocal, get_db, init_db, utcnow
 from .models import (PRODUCT_APPROVED, PRODUCT_PENDING, PRODUCT_REJECTED, SOURCE_MANUAL, ChatMessage, Ingredient, LlmUsage, Memory, Product,
                      ProductIngredientList, User)
-from .security import bearer, create_session, current_user, hash_password, limiter, require_admin, revoke_session, verify_password
+from .security import (BodySizeLimit, bearer, client_ip, create_session, current_user, hash_password, limiter, require_admin,
+                       revoke_session, verify_password)
 from .status import STATUS
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -113,10 +115,14 @@ class HeadAsGet:
 
 
 app.add_middleware(HeadAsGet)
+app.add_middleware(BodySizeLimit)
 
 
-def client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+@app.exception_handler(RequestValidationError)
+async def validation_error(_request: Request, exc: RequestValidationError):
+    """입력 오류 응답에 보낸 값(input)을 그대로 돌려주지 않는다: 비밀번호가 되돌아오거나 큰 요청이 그대로 메아리치는 것 방지."""
+    detail = [{k: v for k, v in e.items() if k in ("type", "loc", "msg")} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": detail})
 
 
 # ---------- 요청/응답 모델 ----------
@@ -333,9 +339,14 @@ def signup(payload: SignupIn, request: Request, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/login", tags=["인증"])
-def login(payload: LoginIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     username = payload.username.lower()
-    if not limiter.hit(f"login:{username}", env_int("RUTI_LOGIN_RATE_PER_15MIN", 10), 900):
+    ip = client_ip(request)
+    # ① 한 곳에서 여러 아이디에 비밀번호 대입(스프레이) ② 한 아이디에 같은 곳에서 반복 ③ 여러 곳에서 한 아이디를 노림.
+    # ③은 넉넉하게 둬서, 남이 일부러 틀려도 본인이 바로 잠기지 않게 한다.
+    if (not limiter.hit(f"login-ip:{ip}", env_int("RUTI_LOGIN_IP_RATE_PER_15MIN", 30), 900)
+            or not limiter.hit(f"login:{username}:{ip}", env_int("RUTI_LOGIN_RATE_PER_15MIN", 10), 900)
+            or not limiter.hit(f"login-user:{username}", env_int("RUTI_LOGIN_USER_RATE_PER_HOUR", 100), 3600)):
         raise HTTPException(429, "로그인 시도가 너무 많습니다. 15분 후 다시 시도해 주세요.")
     user = db.scalar(select(User).where(User.username == username))
     if user is None or not verify_password(payload.password, user.password_hash):
