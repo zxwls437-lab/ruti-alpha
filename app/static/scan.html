@@ -34,6 +34,8 @@
 .explainers{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.explain-btn{background:var(--card);font-size:14px;padding:8px 14px}
 .vsum{margin:10px 0 4px;line-height:1.6}.verdict ul{margin:6px 0 0;padding-left:20px;line-height:1.7}
 .notice{font-size:13px;color:var(--muted);background:var(--bg);padding:10px 12px;border-radius:10px;margin-top:10px}
+.tipgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.tip{background:var(--soft);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--muted)}
+.tip b{color:var(--text);font-size:14px}.tip-ic{font-size:20px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan" class="on">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -340,8 +342,20 @@ $('reviewForm').addEventListener('submit', async e => {
 async function run(path, body, btn){
   $('err').textContent = ''; btn.disabled = true; const label = btn.textContent; btn.textContent = '분석 중…';
   try { showResult(await api(path, {method: 'POST', body})); loadHistory(); }
-  catch (e) { $('err').textContent = e.message; if (e.status === 401) location.reload(); }
+  catch (e) {
+    if (e.status === 401) return location.reload();
+    if (e.status === 422 && path === '/scan/image') return photoHelp(e.message);
+    $('err').textContent = e.message;
+  }
   finally { btn.disabled = false; btn.textContent = label; }
+}
+// 사진을 못 읽었을 때: 글자 한 줄 대신 '이렇게 찍어 주세요' 안내와 다음 행동 버튼
+function photoHelp(msg){
+  const tips = [['🔍', '가까이', '성분표가 화면에 꽉 차게'], ['💡', '밝은 곳', '그림자·반사 없이'], ['📐', '반듯하게', '글자 줄이 수평이 되게'], ['🫙', '둥근 병은', '나눠서 두세 번 찍기']];
+  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 4px'}, '글자를 잘 못 읽었어요'), el('p', {class: 'muted', style: 'margin:0 0 12px;font-size:13.5px'}, msg),
+    el('div', {class: 'tipgrid'}, ...tips.map(([i, t, d]) => el('div', {class: 'tip'}, el('span', {class: 'tip-ic'}, i), el('b', {}, t), el('span', {}, d)))),
+    el('button', {type: 'button', class: 'sheet-save', onclick: () => { s.close(); $('file').click(); }}, '📸 다시 찍기'),
+    el('button', {type: 'button', class: 'linkish', style: 'display:block;margin:6px auto 0', onclick: () => { s.close(); if ($('textForm').classList.contains('hidden')) $('tabText').click(); $('textForm').text.focus(); }}, '글자로 입력할게요'));
 }
 $('photoForm').addEventListener('submit', e => { e.preventDefault(); if (imageData) run('/scan/image', {image: imageData, product_name: e.target.product_name.value}, $('photoBtn')); });
 $('textForm').addEventListener('submit', e => { e.preventDefault(); run('/scan/text', {text: e.target.text.value, product_name: e.target.product_name.value}, e.target.querySelector('button')); });
