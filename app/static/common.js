@@ -201,6 +201,15 @@ const RUTI = {
     try { await navigator.clipboard.writeText(`${text}\n${url}`); RUTI.toast('복사했어요. 원하는 곳에 붙여 넣어 주세요'); }
     catch { RUTI.toast('공유를 할 수 없는 환경이에요'); }
   },
+  // 구매처 보기: 쇼핑 검색 결과로 (광고·제휴 아님). 앱 안이면 바깥 브라우저로
+  shopLink(p){
+    const q = [p.brand && p.source !== 'mfds' ? p.brand : '', p.name].filter(Boolean).join(' ');
+    return p.buy_url || 'https://search.shopping.naver.com/search/all?query=' + encodeURIComponent(q);
+  },
+  openShop(p){
+    const url = RUTI.shopLink(p);
+    if (RUTI.inApp && window.ReactNativeWebView) RUTI.native({type: 'openExternal', url}); else window.open(url, '_blank', 'noopener');
+  },
   toast(msg){
     const t = RUTI.el('div', {class: 'toast', role: 'status'}, msg);
     document.body.append(t); setTimeout(() => t.classList.add('out'), 2200); setTimeout(() => t.remove(), 2600);

@@ -36,6 +36,8 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .noing{display:block;font-size:12px;color:#84601F;text-decoration:none;margin-top:2px}
 .remind-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.remind-row label{display:flex;gap:8px;align-items:center;font-weight:600;min-height:44px;white-space:nowrap;flex:1}.remind-row input[type=checkbox]{width:22px;height:22px;flex:0 0 22px;margin:0}.remind-row input[type=time]{width:auto;min-width:120px}
 .moods button{padding:8px 4px;white-space:nowrap;font-size:12.5px}
+.ex-art{flex-direction:row!important;align-items:center!important;gap:10px!important}.ex-art .p-art{width:42px;height:48px;border-radius:10px}.ex-txt{display:flex;flex-direction:column;gap:2px;min-width:0}.ex-txt span{font-size:12.5px;color:var(--muted)}
+.sheet-art{display:flex;justify-content:center;margin:4px 0 6px}.sheet-art .p-art{width:120px;height:136px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -89,6 +91,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 <script src="/static/common.js"></script>
 <script src="/static/explain.js"></script>
 <script src="/static/usage.js"></script>
+<script src="/static/art.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let data = null, slot = new Date().getHours() < 15 ? 'am' : 'pm';
@@ -193,15 +196,16 @@ async function showExamples(st){
   try {
     const r = await api('/routine/examples?kind=' + st.examples);
     list.replaceChildren(el('p', {class: 'muted', style: 'margin:0 0 8px;font-size:13px'}, `${r.label} · 식약처에 신고된 제품 중 일부예요. 광고·순위가 아니고, 날마다 순서가 바뀌어요.`),
-      ...(r.products.length ? r.products.map(p => el('button', {type: 'button', class: 'ex-row', onclick: () => exampleSheet(p, st)},
-        el('b', {}, p.name), el('span', {}, p.functions || ''))) : [el('p', {class: 'muted'}, '아직 조건에 맞는 제품 정보가 없어요.')]));
+      ...(r.products.length ? r.products.map(p => el('button', {type: 'button', class: 'ex-row ex-art', onclick: () => exampleSheet(p, st)},
+        RUTI.art.product(p, {size: 34}), el('span', {class: 'ex-txt'}, el('b', {}, p.name), el('span', {}, p.functions || '')))) : [el('p', {class: 'muted'}, '아직 조건에 맞는 제품 정보가 없어요.')]));
   } catch (err) { list.replaceChildren(el('p', {class: 'error'}, err.message)); }
 }
 function exampleSheet(p, st){
-  RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.brand ? '식약처 신고 회사: ' + p.brand : ''),
+  RUTI.sheet(el('div', {class: 'sheet-art'}, RUTI.art.product(p, {size: 96})), el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.brand ? '식약처 신고 회사: ' + p.brand : ''),
     p.functions ? el('p', {}, '✔ ' + p.functions) : null,
     p.usage ? el('p', {class: 'muted', style: 'font-size:13.5px'}, '사용법: ' + p.usage) : null,
     el('button', {type: 'button', class: 'sheet-save', onclick: () => RUTI.usage.open({name: p.name, usage: p.usage, functions: p.functions, category: usageKind(st)})}, '▶ 사용법 보기'),
+    el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: () => RUTI.openShop(p)}, '🛒 구매처 보기'),
     el('p', {class: 'muted', style: 'font-size:12.5px;margin-top:10px'}, '전성분은 제품 뒷면을 분석 탭에서 찍으면 내 피부에 맞는지 바로 볼 수 있어요.'));
 }
 

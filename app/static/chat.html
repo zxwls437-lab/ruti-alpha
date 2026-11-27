@@ -14,7 +14,10 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .msg.assistant{max-width:94%;align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
 .msg.warn{background:var(--warn-bg)}
 .saved{align-self:flex-start;font-size:12px;color:var(--brand);background:var(--soft);padding:5px 12px;border-radius:14px}
-.prod{margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px}
+.prod{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--bg);font-size:13px;display:flex;gap:12px;align-items:center;white-space:normal}
+.prod .p-art{width:84px;height:98px}.prod-body{min-width:0;flex:1}.prod-pick{font-size:11px;font-weight:800;color:var(--brand)}.prod-name{display:block;font-size:14.5px;line-height:1.35;margin:2px 0}
+.prod-fn{font-size:12.5px;color:var(--brand);margin-bottom:2px}.prod-btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.prod-btns button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:18px}
+.prod-use{background:var(--card);color:var(--brand);border:1px solid var(--brand)}
 .suggest{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.suggest:empty{display:none}
 .suggest button{flex-shrink:0;min-height:36px;padding:0 14px;font-size:13px;background:var(--card);color:var(--text);border:1px solid var(--line);font-weight:500}
 .askbar{display:flex;gap:8px;align-items:flex-end;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:6px 6px 6px 14px}
@@ -50,17 +53,25 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 </main>
 <script src="/static/common.js"></script>
 <script src="/static/explain.js"></script>
+<script src="/static/usage.js"></script>
+<script src="/static/art.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 
 function productCard(p){
-  return el('div', {class: 'prod'},
-    el('strong', {}, p.name), p.brand ? ' · ' + p.brand : '', el('br'),
-    ...(p.skin_types || []).map(s => el('span', {class: 'tag'}, s)),
-    p.key_ingredients ? el('div', {class: 'muted'}, '주요 성분: ' + p.key_ingredients) : null,
-    p.cautions ? el('div', {class: 'muted'}, '주의: ' + p.cautions) : null,
-    p.source === 'mfds' ? el('div', {class: 'muted'}, '출처: 식품의약품안전처 기능성화장품 정보') : null,
-    p.source_url ? el('a', {href: p.source_url, target: '_blank', rel: 'noopener noreferrer'}, '근거 자료') : null);
+  const fn = ((p.description || '').split('\n').find(l => l.startsWith('기능:')) || '').replace('기능:', '').trim();
+  const card = el('div', {class: 'prod'});
+  card.append(RUTI.art.product({...p, functions: fn}, {size: 76}),
+    el('div', {class: 'prod-body'},
+      el('div', {class: 'prod-pick'}, '✨ RUTI 추천'),
+      el('strong', {class: 'prod-name'}, p.name),
+      fn ? el('div', {class: 'prod-fn'}, '✔ ' + fn) : null,
+      p.key_ingredients ? el('div', {class: 'muted', style: 'font-size:12px'}, '주요 성분: ' + p.key_ingredients) : null,
+      el('div', {class: 'prod-btns'},
+        el('button', {type: 'button', class: 'prod-buy', onclick: () => RUTI.openShop(p)}, '🛒 구매처 보기'),
+        RUTI.usage ? el('button', {type: 'button', class: 'prod-use', onclick: () => RUTI.usage.open({name: p.name, functions: fn})}, '▶ 사용법') : null),
+      p.source === 'mfds' ? el('div', {class: 'muted', style: 'font-size:11px;margin-top:4px'}, '식약처 기능성화장품 정보 · 그림은 이해를 돕는 예시예요') : null));
+  return card;
 }
 function addMsg(role, text, products = [], warn = false){
   const m = el('div', {class: 'msg ' + role + (warn ? ' warn' : '')}, text, ...products.map(productCard));

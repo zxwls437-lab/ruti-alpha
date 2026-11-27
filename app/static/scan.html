@@ -36,6 +36,8 @@
 .notice{font-size:13px;color:var(--muted);background:var(--bg);padding:10px 12px;border-radius:10px;margin-top:10px}
 .tipgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.tip{background:var(--soft);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--muted)}
 .tip b{color:var(--text);font-size:14px}.tip-ic{font-size:20px}
+.find-row{display:flex;align-items:center;gap:10px}.find-row .p-art{width:42px;height:48px;border-radius:10px}.find-row .hist-name{flex:1;min-width:0}
+.sheet-art{display:flex;justify-content:center;margin:4px 0 6px}.sheet-art .p-art{width:120px;height:136px}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan" class="on">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -138,6 +140,7 @@
 <script src="/static/common.js"></script>
 <script src="/static/explain.js"></script>
 <script src="/static/usage.js"></script>
+<script src="/static/art.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
 let imageData = null, current = null;
@@ -382,18 +385,20 @@ $('findForm').addEventListener('submit', async e => {
   $('findList').replaceChildren(el('p', {class: 'muted'}, '찾는 중…'));
   try {
     const {products} = await api('/products/find?q=' + encodeURIComponent(q));
-    $('findList').replaceChildren(...(products.length ? products.map(p => el('button', {type: 'button', class: 'hist', onclick: () => productSheet(p)},
+    $('findList').replaceChildren(...(products.length ? products.map(p => el('button', {type: 'button', class: 'hist find-row', onclick: () => productSheet(p)},
+      RUTI.art.product(p, {size: 34}),
       el('span', {class: 'hist-name'}, p.source === 'mfds' ? p.name : [p.brand, p.name].filter(Boolean).join(' · ')),
       el('span', {class: 't ' + (p.ingredients.length ? 'green' : 'gray')}, p.ingredients.length ? '성분 있음' : (p.functions ? '기능성' : '정보')))) :
       [el('p', {class: 'muted'}, '찾는 제품이 없어요. 뒷면 성분표를 찍어 주시면 다음 분들도 찾을 수 있어요.')]));
   } catch (err) { $('findList').replaceChildren(el('p', {class: 'error'}, err.message)); }
 });
 function productSheet(p){
-  const s = RUTI.sheet(el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.source === 'mfds' ? (p.brand ? '식약처 신고 회사: ' + p.brand : '') : (p.brand || '')),
+  const s = RUTI.sheet(el('div', {class: 'sheet-art'}, RUTI.art.product(p, {size: 96})), el('h2', {style: 'margin:4px 0 2px'}, p.name), el('p', {class: 'muted', style: 'margin:0 0 10px'}, p.source === 'mfds' ? (p.brand ? '식약처 신고 회사: ' + p.brand : '') : (p.brand || '')),
     p.functions ? el('p', {style: 'margin:0 0 6px'}, '✨ ' + p.functions) : '',
     p.ingredients.length ? el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, `전성분 ${p.ingredients.length}개가 등록돼 있어요`)
       : el('p', {class: 'muted', style: 'margin:0 0 10px;font-size:13px'}, '아직 전성분이 없어요. 뒷면을 찍으면 내 피부에 맞는지 볼 수 있어요.'),
     el('button', {type: 'button', class: 'sheet-save', onclick: () => RUTI.usage.open({name: p.name, brand: p.brand, usage: p.usage, functions: p.functions})}, '▶ 사용법 보기'),
+    el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: () => RUTI.openShop(p)}, '🛒 구매처 보기'),
     p.ingredients.length ? el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: async () => {
       s.close(); await run('/scan/text', {text: p.ingredients.join(', '), product_name: [p.brand, p.name].filter(Boolean).join(' ')}, $('findForm').querySelector('button'));
     }}, '내 피부에 맞는지 보기') : el('button', {type: 'button', class: 'sheet-save', style: 'background:var(--card);color:var(--brand);border:1px solid var(--brand)', onclick: () => { s.close(); $('file').click(); }}, '뒷면 찍기'),

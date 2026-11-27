@@ -46,6 +46,7 @@
 
   <div id="app" class="wrap hidden">
     <div class="hello"><span class="muted" id="helloName">안녕하세요</span><h1>오늘 피부는 어떠세요?</h1></div>
+    <div id="heroArt"></div>
     <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChips" class="chip-row" style="margin:0"></span><b>수정</b></button>
 
     <section class="card starter hidden" id="starter">
@@ -82,6 +83,7 @@
   </div>
 </main>
 <script src="/static/common.js"></script>
+<script src="/static/art.js"></script>
 <script src="/static/explain.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
@@ -178,6 +180,7 @@ async function start(){
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
   $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
+  $('heroArt').replaceChildren(RUTI.art.hero());
   loadSkin(); loadRecent(); loadPosts();
   routine = await api('/routine/today'); renderRoutine();
   started.vanity = routine.items.length > 0; renderStarter();
