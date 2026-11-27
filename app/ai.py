@@ -53,7 +53,13 @@ SYSTEM_PROMPT = """당신은 스킨케어 상담 도우미 'RUTI'입니다. 피�
 1. 의사가 아닙니다. 질환명을 단정하거나 약·시술을 권하지 마세요. 증상이 심하거나 오래가면 피부과 진료를 권하세요.
 2. 화장품에 의약품처럼 들리는 표현을 쓰지 마세요: 치료, 완치, 예방, 재생, 피부 재생, 세포 재생, 염증 완화, 상처 회복, 여드름 치료, 아토피 개선, 흉터 제거 등.
    대신 "보습에 도움", "피부 결 정돈", "주름 개선에 도움을 주는 기능성 성분"처럼 화장품 범위로 표현하세요.
-3. (제품을 직접 물었을 때만) 제품명·브랜드는 <approved_products>에 있는 것만 말하고, 말한 제품의 id를 product_ids에 넣으세요. 그 밖의 제품명·브랜드는 사용자가 직접 물어도 추천하거나 평가하지 마세요.
+3. 추천은 딱 1개만 하세요. 제품을 물으면 <user_memories>의 피부 타입·피해야 할 성분·고민, 사용자가 찾는 종류(크림·선크림 등)를 모두 따져
+   <approved_products> 중 가장 잘 맞는 하나를 직접 판단해 고르고, product_ids에도 그 1개만 넣으세요. 여러 개를 나열하거나 "A나 B"처럼 고르게 하지 마세요.
+   고른 이유는 사용자 정보와 연결해 짧게 한마디만 (예: "지수님은 건성이라 세라마이드가 든 이 크림이 가장 잘 맞아요"). 다른 걸 원하면 말해 달라고 덧붙여도 돼요.
+   이유는 <approved_products>에 적힌 정보(성분·기능·피부 타입)로만 말하고, 적혀 있지 않은 사용감("촉촉해요", "가벼워요")이나 효과는 지어내지 마세요.
+   찾는 종류의 제품이 목록에 없으면 다른 종류를 권하거나 "대신 ~ 추천해 드릴까요?"라고 묻지 마세요.
+   대신 지수님 피부에 맞는 성분 한두 개만 알려 드리고 "쓰고 싶은 제품 성분표를 보내 주시면 제가 맞는지 봐 드릴게요"로 도와드리세요.
+   (제품을 직접 물었을 때만) 제품명·브랜드는 <approved_products>에 있는 것만 말하고, 말한 제품의 id를 product_ids에 넣으세요. 그 밖의 제품명·브랜드는 사용자가 직접 물어도 추천하거나 평가하지 마세요.
 4. 사용자가 찾는 종류(예: 크림)와 다른 종류의 제품(예: 선크림)은 대신 끼워 넣지 마세요. 맞는 제품이 없으면 그 사실을 말하지 말고, 찾아볼 만한 성분·제형을 짧게 알려 드리세요. "승인", "목록", "데이터", "시스템", "DB" 같은 내부 용어는 절대 쓰지 마세요.
 5. <ingredient_info>는 식약처 공공데이터의 성분 정보입니다. 성분 질문에는 이를 근거로 쉽게 풀어 설명하고, restriction 값은 나라별 규제([국가] 금지/한도 등)입니다. restriction 값이 비어 있지 않으면 반드시 한 문장으로 언급하세요. 한국(대한민국) 규정이 있으면 그것을 기준으로 설명하고, 한국 규정이 없으면 "일부 해외 국가에서는 사용 농도 등을 제한하는 성분"이라고 간단히 알려주세요. 정보가 없으면 추측하지 마세요.
 6. 제품 정보에 source가 "mfds"인 제품은 식약처에 보고·심사된 기능성화장품입니다. 제품을 언급할 때 기능(미백·주름개선·자외선차단 등)을 함께 말해 주세요.
@@ -109,6 +115,15 @@ def needs_safety_hold(message: str) -> bool:
 
 def _tokens(text: str) -> set[str]:
     return {t for t in re.split(r"[\s,./()\[\]!?~·]+", text.lower()) if len(t) >= 2}
+
+
+def conflicts_with_memories(p: dict, memories: list[str]) -> bool:
+    """제품의 주요 성분 중 사용자가 '민감해요/안 맞아요'라고 한 성분(묶음 포함)이 있으면 True."""
+    if not memories:
+        return False
+    from .scan import matching_memo  # noqa: PLC0415  (순환 import 방지)
+    names = [n.strip() for n in re.split(r"[,/·\n]", p.get("key_ingredients") or "") if n.strip()]
+    return any(matching_memo(n, memories) for n in names)
 
 
 def select_relevant_products(message: str, memories: list[str], products: list[dict], limit: int) -> list[dict]:
@@ -198,6 +213,7 @@ ERROR_MESSAGES = {
 
 def generate_answer(message: str, memories: list[str], products: list[dict], history: list[dict],
                     ingredients: list[dict] | None = None, review_stats: list[dict] | None = None, user_name: str = "") -> AIResult:
+    products = [p for p in products if not conflicts_with_memories(p, memories)]  # 내가 피해야 할 성분이 든 제품은 후보에서 뺀다
     selected = select_relevant_products(message, memories, products, env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 15))
     try:
         result = llm.chat(build_messages(message, memories, selected, history, ingredients, review_stats, user_name), purpose="chat",
@@ -207,6 +223,7 @@ def generate_answer(message: str, memories: list[str], products: list[dict], his
         text, engine = ERROR_MESSAGES.get(e.code, ERROR_MESSAGES["error"])
         return AIResult(text, engine)
     answer, ids = parse_model_output(result.content, {p["id"] for p in selected})
+    ids = ids[:1]  # 추천은 하나만 (가장 잘 맞는 것)
     try:
         data = json.loads(result.content)
         urgent = bool(data.get("urgent"))
