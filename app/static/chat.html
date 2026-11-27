@@ -25,6 +25,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .askbar textarea:focus{outline:none}
 .askbar button{flex:0 0 auto}
 .auth{max-width:380px;margin:40px auto}
+.msg.pending{padding:6px 12px;background:transparent;border:0}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="/dev">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -93,11 +94,13 @@ async function loadMems(){
 $('skinBar').addEventListener('click', () => RUTI.skin.open(loadMems));
 const SUGGEST = ['요즘 피부가 당겨요', '트러블에 좋은 성분은?', '아침 루틴 알려줘', '레티놀 처음 써도 될까요?'];
 function showSuggest(show){ $('suggest').replaceChildren(...(show ? SUGGEST.map(q => el('button', {type: 'button', onclick: () => { $('ask').message.value = q; $('ask').requestSubmit(); }}, q)) : [])); }
+let myName = '';
 async function start(){
   let me;
   try { me = await api('/auth/me'); } catch { $('authForm').classList.remove('hidden'); return; }
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden'); $('logout').classList.remove('hidden');
+  myName = me.name || '';
   loadHistory(); loadMems();
   RUTI.skin.promptOnce(me, loadMems);
 }
@@ -108,7 +111,10 @@ $('ask').addEventListener('submit', async e => {
   if (!text) return;
   $('askErr').textContent = ''; box.value = ''; btn.disabled = true;
   addMsg('user', text);
-  const pending = addMsg('assistant', '답변을 준비하고 있어요…');
+  const pending = addMsg('assistant', '');
+  pending.classList.add('pending'); pending.setAttribute('aria-label', 'RUTI가 답을 생각하고 있어요');
+  pending.append(RUTI.art.thinking([`${myName ? myName + '님 ' : ''}피부 정보를 살펴보는 중…`, '성분을 확인하는 중…', '짧고 쉽게 다듬는 중…']));
+  requestAnimationFrame(() => { $('log').scrollTop = $('log').scrollHeight; });
   try {
     const r = await api('/conversation', {method: 'POST', body: {message: text}});
     pending.remove(); showSuggest(false);

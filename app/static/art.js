@@ -166,6 +166,32 @@
     return box;
   }
 
+  // 상담 답을 기다리는 동안: RUTI 물방울이 고개를 갸웃하며 생각 (말풍선 점 세 개 + 바뀌는 한 줄)
+  function thinking(lines = ['피부 정보를 살펴보는 중…', '성분을 확인하는 중…', '짧고 쉽게 다듬는 중…']) {
+    const box = document.createElement('div');
+    box.className = 'think';
+    box.setAttribute('role', 'status');
+    box.innerHTML = `<svg viewBox="0 0 120 90" width="96" height="72" aria-hidden="true">
+      <g class="th-bubbles"><circle cx="78" cy="30" r="3" fill="#CFE5DA"/><circle cx="86" cy="20" r="4.5" fill="#CFE5DA"/>
+        <rect x="88" y="2" width="30" height="18" rx="9" fill="#CFE5DA"/>
+        <circle class="th-dot" cx="96" cy="11" r="2.4" fill="#4F7D6E"/><circle class="th-dot d2" cx="103" cy="11" r="2.4" fill="#4F7D6E"/><circle class="th-dot d3" cx="110" cy="11" r="2.4" fill="#4F7D6E"/></g>
+      <g class="th-tilt" style="transform-origin:46px 80px">
+        <path d="M46 18c14 17 23 29 23 41a23 23 0 0 1-46 0c0-12 9-24 23-41z" fill="#9CCBB8"/>
+        <path d="M37 38c-4 7-6 13-6 19" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".6" fill="none"/>
+        <circle cx="39" cy="58" r="2.6" fill="#3A3330"/><circle cx="54" cy="56" r="2.6" fill="#3A3330"/>
+        <circle class="th-look" cx="40" cy="57" r=".9" fill="#fff"/><circle class="th-look" cx="55" cy="55" r=".9" fill="#fff"/>
+        <ellipse cx="34" cy="66" rx="4" ry="2.4" fill="#F2A7A0" opacity=".7"/><ellipse cx="59" cy="64" rx="4" ry="2.4" fill="#F2A7A0" opacity=".7"/>
+        <path d="M43 68q4 2 8 0" stroke="#3A3330" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M62 70q8-2 6-10" stroke="#9CCBB8" stroke-width="5" stroke-linecap="round" fill="none"/>
+      </g></svg><span class="th-text">${esc(lines[0])}</span>`;
+    let i = 0;
+    const t = setInterval(() => {
+      if (!box.isConnected) return clearInterval(t);
+      i = (i + 1) % lines.length; box.querySelector('.th-text').textContent = lines[i];
+    }, 1800);
+    return box;
+  }
+
   const CSS = `.p-art{flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:16px;background:var(--soft,#EAF2EE);overflow:hidden}
 .p-art img{width:100%;height:100%;object-fit:cover}
 .hero-art{margin:4px 0 14px}.hero-svg{width:100%;height:auto;display:block}
@@ -176,11 +202,16 @@
 .h-bubble{animation:hBubble 4.2s ease-in infinite}.h-bubble.d2{animation-delay:1.4s}.h-bubble.d3{animation-delay:2.6s}
 .h-spin{animation:hSpin 24s linear infinite}.h-twinkle{animation:hTw 2.4s ease-in-out infinite}.h-twinkle.d2{animation-delay:.8s}.h-twinkle.d3{animation-delay:1.6s}
 @keyframes avSp{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}.av-spark{animation:avSp 2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}.av-spark.d2{animation-delay:.9s}
+@keyframes thTilt{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(7deg)}}@keyframes thDot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@keyframes thPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+.think{display:flex;align-items:center;gap:8px;padding:2px 4px}.th-tilt{animation:thTilt 1.6s ease-in-out infinite}
+.th-dot{animation:thDot 1.2s infinite}.th-dot.d2{animation-delay:.2s}.th-dot.d3{animation-delay:.4s}
+.th-bubbles{animation:thPop .5s ease-out both;transform-origin:80px 30px}.th-text{font-size:13.5px;color:var(--muted,#736A64)}
 @keyframes avHalo{to{stroke-dashoffset:-48}}.av-halo{animation:avHalo 6s linear infinite}
-@media (prefers-reduced-motion:reduce){.av-spark,.av-halo,.h-float,.h-float2,.h-bubble,.h-spin,.h-twinkle{animation:none}}`;
+@media (prefers-reduced-motion:reduce){.th-tilt,.th-dot,.av-spark,.av-halo,.h-float,.h-float2,.h-bubble,.h-spin,.h-twinkle{animation:none}}`;
   if (!document.getElementById('art-style')) {
     const st = document.createElement('style'); st.id = 'art-style'; st.textContent = CSS; document.head.append(st);
   }
   const R = root.RUTI || root;
-  R.art = {product, productSVG, hero, kindOf, avatar, avatarSVG};
+  R.art = {product, productSVG, hero, kindOf, avatar, avatarSVG, thinking};
 })(typeof RUTI !== 'undefined' ? {RUTI} : window);
