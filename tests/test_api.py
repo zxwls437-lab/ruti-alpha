@@ -388,3 +388,16 @@ def test_error_log(client):
     assert client.get("/admin/errors", headers=signup(client, "plainerr1")).status_code == 403
     client.delete("/admin/errors", headers=admin)
     assert client.get("/admin/errors", headers=admin).json()["errors"] == []
+
+
+def test_security_watch(client):
+    from tests.conftest import make_admin
+    admin = make_admin(client, "secadmin")
+    user = signup(client, "secuser1")
+    assert client.get("/.env").status_code == 404
+    assert client.get("/wp-admin/setup.php").status_code == 404
+    assert client.get("/admin/users", headers=user).status_code == 403
+    assert client.get("/nothing-here").status_code == 404  # 평범한 404는 기록하지 않음
+    errs = client.get("/admin/errors", headers=admin).json()["errors"]
+    sec = {e["path"] for e in errs if e["kind"] == "security"}
+    assert sec == {"/.env", "/wp-admin/setup.php", "/admin/users"}

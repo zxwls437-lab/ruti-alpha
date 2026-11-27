@@ -29,8 +29,8 @@
       <div style="overflow-x:auto;margin-top:8px"><table id="userTable" style="width:100%;border-collapse:collapse;font-size:13px"></table></div>
     </section>
     <section class="card">
-      <div class="row" style="justify-content:space-between"><h2 style="margin:0">오류 기록</h2><button type="button" class="ghost small" id="errClear">비우기</button></div>
-      <p class="muted" style="margin:4px 0 8px">고객 화면(브라우저·앱)과 서버에서 난 오류를 자동으로 모아요. 같은 오류는 횟수로 묶여요.</p>
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">오류·보안 기록</h2><button type="button" class="ghost small" id="errClear">비우기</button></div>
+      <p class="muted" style="margin:4px 0 8px">고객 화면·서버 오류와 🛡 해킹 시도(이상한 주소 탐색, 관리자 무단 접근, 로그인 연속 실패)를 자동으로 모아요. 같은 일은 횟수로 묶여요.</p>
       <div id="errList"></div>
     </section>
     <section class="card">
@@ -308,7 +308,7 @@ async function resetPw(username){
 async function loadErrors(){
   const {errors} = await api('/admin/errors');
   $('errList').replaceChildren(...(errors.length ? errors.map(e => el('div', {style: 'padding:8px 0;border-bottom:1px solid var(--line);font-size:13px'},
-    el('b', {}, `${e.kind === 'server' ? '🖥 서버' : '📱 화면'} · ${e.path} · ${e.count}회`),
+    el('b', {}, `${e.kind === 'server' ? '🖥 서버' : e.kind === 'security' ? '🛡 보안' : '📱 화면'} · ${e.path} · ${e.count}회`),
     el('div', {style: 'word-break:break-all'}, e.message), el('div', {class: 'muted', style: 'font-size:12px'}, '마지막: ' + ago(e.last_at))))
     : [el('p', {class: 'muted'}, '오류가 없어요 👍')]));
 }

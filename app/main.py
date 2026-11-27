@@ -55,7 +55,10 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="RUTI API", version="0.5.0", lifespan=lifespan)
+# API 설명서(/docs)는 운영에서는 숨긴다 (공격자에게 관리자 주소 목록을 보여주지 않게). 개발 때만 RUTI_ENABLE_DOCS=1
+_docs = env("RUTI_ENABLE_DOCS") == "1" or not env("DATABASE_URL").startswith("postgres")
+app = FastAPI(title="RUTI API", version="0.5.0", lifespan=lifespan,
+              docs_url="/docs" if _docs else None, redoc_url=None, openapi_url="/openapi.json" if _docs else None)
 from . import errors, push  # noqa: E402
 app.include_router(errors.router)
 app.include_router(push.router)
@@ -82,6 +85,10 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    # 보안 감시: 흔한 해킹 탐색 주소(.env, wp-admin, .git 등)·관리자 주소 무단 접근·로그인 연속 실패를 기록
+    errors.watch(request, response.status_code)
     # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
     path = request.url.path
     if (path in ("/", "/home", "/routine", "/dev", "/chat", "/scan", "/community", "/mypage", "/admin") or path.startswith("/static/")) and not path.startswith("/static/icons/"):

@@ -67,3 +67,21 @@ def clear_errors(_admin: User = Depends(require_admin), db: Session = Depends(ge
     db.query(ErrorLog).delete()
     db.commit()
     return {"cleared": True}
+
+
+# ---------- 보안 감시 ----------
+# 자동 해킹 도구가 흔히 찔러보는 주소들. RUTI에는 없는 주소라 접근 자체가 탐색 신호다.
+_PROBE = re.compile(r"(\.env|\.git|wp-admin|wp-login|wordpress|phpmyadmin|\.php\b|/etc/passwd|\.\./|xmlrpc|/cgi-bin|\.aws|config\.json|/actuator|/server-status|\.sql\b|\.bak\b|/vendor/)", re.I)
+
+
+def watch(request, status: int) -> None:
+    path = request.url.path
+    try:
+        if status == 404 and _PROBE.search(path + "?" + (request.url.query or "")):
+            record("security", path, "해킹 도구가 흔히 찾는 주소에 접근 (RUTI에는 없는 주소라 막혔어요)")
+        elif status == 403 and path.startswith("/admin"):
+            record("security", path, "관리자가 아닌 계정이 관리자 기능에 접근하려 했어요 (막혔어요)")
+        elif status == 429 and path.startswith("/auth/login"):
+            record("security", path, "같은 아이디로 로그인 실패가 너무 많아 15분 동안 막았어요")
+    except Exception:  # noqa: BLE001
+        log.exception("security watch failed")
