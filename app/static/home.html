@@ -29,6 +29,9 @@
 .t.green{background:var(--soft);color:var(--brand)}.t.orange{background:#FCF1DE;color:#84601F}.t.red{background:#FBE7E3;color:#A44A3F}
 .post .meta{font-size:12px;color:var(--muted)}
 .moods button{padding:8px 4px;white-space:nowrap;font-size:12.5px}
+.starter{border:1.5px solid var(--brand)}.starter .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}.starter .bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .4s}.st-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);width:100%;background:none;text-align:left;font-weight:400;min-height:52px}
+.st-row:last-child{border-bottom:0}.st-num{width:28px;height:28px;flex:0 0 28px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted)}
+.st-row.done .st-num{background:var(--brand);border-color:var(--brand);color:#fff}.st-row.done b{text-decoration:line-through;color:var(--muted)}.st-row .go{margin-left:auto;color:var(--brand);font-weight:700;font-size:13px;white-space:nowrap}
 </style></head><body>
 <nav><b>RUTI</b><a href="/home" class="on">홈</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -44,6 +47,12 @@
   <div id="app" class="wrap hidden">
     <div class="hello"><span class="muted" id="helloName">안녕하세요</span><h1>오늘 피부는 어떠세요?</h1></div>
     <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChips" class="chip-row" style="margin:0"></span><b>수정</b></button>
+
+    <section class="card starter hidden" id="starter">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">RUTI 시작하기</h2><span class="muted" id="starterCount"></span></div>
+      <div class="bar" style="margin:8px 0 4px"><i id="starterBar"></i></div>
+      <div id="starterSteps"></div>
+    </section>
 
     <a class="today" href="/routine"><span class="go">루틴 보기 ›</span><h2>오늘의 루틴</h2>
       <div class="slots"><div class="slot"><b>☀️ 아침</b><div class="muted" id="amText"></div><div class="bar"><i id="amBar"></i></div></div>
@@ -122,17 +131,37 @@ function renderRoutine(){
     b.setAttribute('aria-pressed', String(!!todayLog && todayLog.mood === v)); return b;
   }));
 }
+// 처음 온 사람이 '이제 뭐 하지?' 하고 멈추지 않게: 세 단계를 다 하면 사라진다
+const started = {skin: null, scan: null, vanity: null};
+function renderStarter(){
+  if (Object.values(started).some(v => v === null)) return;
+  const steps = [['skin', '내 피부 정보 고르기', '분석·추천이 내 피부에 맞춰져요', () => RUTI.skin.open(async () => { await loadSkin(); routine = await api('/routine/today'); renderRoutine(); })],
+    ['scan', '첫 성분표 분석하기', '뒷면을 찍으면 맞는지 바로 알려줘요', '/scan'],
+    ['vanity', '쓰는 제품 담기', '이름만 적어도 내 루틴이 돼요', '/routine']];
+  const done = steps.filter(([k]) => started[k]).length;
+  $('starter').classList.toggle('hidden', done === steps.length);
+  $('starterCount').textContent = `${done} / ${steps.length}`;
+  $('starterBar').style.width = `${done / steps.length * 100}%`;
+  $('starterSteps').replaceChildren(...steps.map(([k, t, sub, go], i) => {
+    const inner = [el('span', {class: 'st-num'}, started[k] ? '✓' : String(i + 1)), el('span', {}, el('b', {}, t), el('div', {class: 'muted', style: 'font-size:12.5px'}, sub)),
+      started[k] ? null : el('span', {class: 'go'}, '하기 ›')];
+    return typeof go === 'string' ? el('a', {class: 'st-row' + (started[k] ? ' done' : ''), href: go}, ...inner)
+      : el('button', {type: 'button', class: 'st-row' + (started[k] ? ' done' : ''), onclick: go}, ...inner);
+  }));
+}
 async function loadSkin(){
   try {
     const {memories} = await api('/memory');
+    started.skin = memories.length > 0; renderStarter();
     $('skinChips').replaceChildren(...(memories.length ? RUTI.skin.chips(memories.slice(0, 4)) : [el('span', {class: 'muted'}, '골라 주세요')]));
     pickTip(memories.map(m => m.content));
-  } catch { $('skinBar').classList.add('hidden'); pickTip([]); }
+  } catch { $('skinBar').classList.add('hidden'); pickTip([]); started.skin = true; renderStarter(); }
 }
 $('skinBar').addEventListener('click', () => RUTI.skin.open(async () => { await loadSkin(); routine = await api('/routine/today'); renderRoutine(); }));
 async function loadRecent(){
   const V = {good: ['green', '✓ 잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '주의']};
   const {scans} = await api('/scan/history?limit=3');
+  started.scan = scans.length > 0; renderStarter();
   $('recent').replaceChildren(...(scans.length ? scans.map(s => el('a', {class: 'li', href: '/scan'}, el('span', {class: 'nm'}, s.product_name || '이름 없는 제품'),
     V[s.level] ? el('span', {class: 't ' + V[s.level][0]}, V[s.level][1]) : null)) : [el('p', {class: 'muted', style: 'margin:0'}, '아직 분석한 제품이 없어요. 성분표를 찍어 보세요.')]));
 }
@@ -151,6 +180,7 @@ async function start(){
   $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
   loadSkin(); loadRecent(); loadPosts();
   routine = await api('/routine/today'); renderRoutine();
+  started.vanity = routine.items.length > 0; renderStarter();
   RUTI.skin.promptOnce(me, loadSkin);
 }
 RUTI.bindAuth($('authForm'), start);
