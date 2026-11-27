@@ -182,13 +182,26 @@
         <circle class="th-look" cx="40" cy="57" r=".9" fill="#fff"/><circle class="th-look" cx="55" cy="55" r=".9" fill="#fff"/>
         <ellipse cx="34" cy="66" rx="4" ry="2.4" fill="#F2A7A0" opacity=".7"/><ellipse cx="59" cy="64" rx="4" ry="2.4" fill="#F2A7A0" opacity=".7"/>
         <path d="M43 68q4 2 8 0" stroke="#3A3330" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M62 70q8-2 6-10" stroke="#9CCBB8" stroke-width="5" stroke-linecap="round" fill="none"/>
-      </g></svg><span class="th-text">${esc(lines[0])}</span>`;
-    let i = 0;
+      </g></svg><span class="th-text"></span>`;
+    // 금방 끝나는 답에는 글자를 띄우지 않는다. 2초 넘게 걸릴 때만 '무엇을 하는 중인지' 보여준다
+    let i = -1;
     const t = setInterval(() => {
       if (!box.isConnected) return clearInterval(t);
       i = (i + 1) % lines.length; box.querySelector('.th-text').textContent = lines[i];
-    }, 1800);
+    }, 2000);
+    return box;
+  }
+
+  // 상담 말풍선 옆 RUTI 얼굴 (작은 물방울)
+  function face(size = 34) {
+    const box = document.createElement('span');
+    box.className = 'ruti-face'; box.setAttribute('aria-hidden', 'true');
+    box.innerHTML = `<svg viewBox="0 0 60 60" width="${size}" height="${size}"><circle cx="30" cy="30" r="29" fill="#EAF2EE"/>
+      <path d="M30 9c10 12 16 21 16 29a16 16 0 0 1-32 0c0-8 6-17 16-29z" fill="#9CCBB8"/>
+      <path d="M24 24c-3 5-4 9-4 13" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".6" fill="none"/>
+      <circle cx="25" cy="39" r="2" fill="#3A3330"/><circle cx="35" cy="39" r="2" fill="#3A3330"/>
+      <ellipse cx="21" cy="44" rx="2.6" ry="1.6" fill="#F2A7A0" opacity=".8"/><ellipse cx="39" cy="44" rx="2.6" ry="1.6" fill="#F2A7A0" opacity=".8"/>
+      <path d="M27 45q3 2.4 6 0" stroke="#3A3330" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
     return box;
   }
 
@@ -213,5 +226,5 @@
     const st = document.createElement('style'); st.id = 'art-style'; st.textContent = CSS; document.head.append(st);
   }
   const R = root.RUTI || root;
-  R.art = {product, productSVG, hero, kindOf, avatar, avatarSVG, thinking};
+  R.art = {product, productSVG, hero, kindOf, avatar, avatarSVG, thinking, face};
 })(typeof RUTI !== 'undefined' ? {RUTI} : window);

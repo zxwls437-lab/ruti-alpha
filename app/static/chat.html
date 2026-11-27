@@ -26,6 +26,7 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .askbar button{flex:0 0 auto}
 .auth{max-width:380px;margin:40px auto}
 .msg.pending{padding:6px 12px;background:transparent;border:0}
+.ruti-row{display:flex;align-items:flex-end;gap:6px;align-self:flex-start;max-width:96%}.ruti-row .msg.assistant{max-width:none}.ruti-face{flex:0 0 34px;display:flex}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat" class="on">상담</a><a href="/scan">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="/dev">개발 현황</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -76,12 +77,14 @@ function productCard(p){
 }
 function addMsg(role, text, products = [], warn = false){
   const m = el('div', {class: 'msg ' + role + (warn ? ' warn' : '')}, text, ...products.map(productCard));
-  $('log').append(m); $('log').scrollTop = $('log').scrollHeight; return m;
+  // RUTI가 직접 말하는 것처럼: 답 옆에 RUTI 물방울 얼굴
+  $('log').append(role === 'assistant' && text ? el('div', {class: 'ruti-row'}, RUTI.art.face(34), m) : m);
+  $('log').scrollTop = $('log').scrollHeight; return m;
 }
 async function loadHistory(){
   const {messages} = await api('/conversation/history');
   $('log').replaceChildren();
-  if (!messages.length) addMsg('assistant', '안녕하세요, RUTI예요. 피부 고민을 편하게 물어보세요.');
+  if (!messages.length) addMsg('assistant', `안녕하세요${myName ? ', ' + myName + '님' : ''}! 피부 비서 RUTI예요 💧 피부 고민을 편하게 말씀해 주세요.`);
   showSuggest(!messages.length);
   messages.forEach(m => addMsg(m.role, m.content, m.products));
 }

@@ -164,13 +164,13 @@ def test_ai_error_codes(client, monkeypatch):
     h = signup(client)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setattr(ai.httpx, "post", lambda *a, **k: FakeResponse(429))
-    assert client.post("/conversation", headers=h, json={"message": "안녕"}).json()["engine"] == "ai_quota_or_rate_limit"
+    assert client.post("/conversation", headers=h, json={"message": "보습 크림 질문이요"}).json()["engine"] == "ai_quota_or_rate_limit"
 
     def boom(*a, **k):
         raise httpx.ConnectError("down")
 
     monkeypatch.setattr(ai.httpx, "post", boom)
-    assert client.post("/conversation", headers=h, json={"message": "안녕"}).json()["engine"] == "ai_error"
+    assert client.post("/conversation", headers=h, json={"message": "보습 크림 질문이요"}).json()["engine"] == "ai_error"
 
 
 def test_chat_rate_limit(client, monkeypatch):

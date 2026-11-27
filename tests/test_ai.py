@@ -35,3 +35,21 @@ def test_with_name():
     assert ai.with_name("여드름 때문에 힘드셨죠.", "태현") == "태현님, 여드름 때문에 힘드셨죠."
     assert ai.with_name("태현님, 안녕하세요.", "태현") == "태현님, 안녕하세요."
     assert ai.with_name("안녕하세요.", "") == "안녕하세요."
+
+
+def test_quick_reply():
+    from app import ai
+    assert ai.quick_kind("안녕") == "hello" and ai.quick_kind("안녕하세요!") == "hello" and ai.quick_kind("hi") == "hello"
+    assert ai.quick_kind("너 소개해줘") == "intro" and ai.quick_kind("뭐 할 수 있어?") == "intro"
+    assert ai.quick_kind("고마워요") == "thanks" and ai.quick_kind("잘자") == "bye"
+    for q in ("하이알루론산 좋아?", "바이오 성분 괜찮아?", "안녕하세요 레티놀 처음 써도 되나요 너무 궁금해요", "트러블 났어"):
+        assert ai.quick_kind(q) is None, q
+    assert ai.quick_reply("소개해줘", "태현").startswith("태현님, 저는 피부 비서 RUTI예요")
+
+
+def test_quick_reply_endpoint_no_ai(client, monkeypatch):
+    from app import ai
+    from tests.conftest import signup
+    monkeypatch.setattr(ai, "generate_answer", lambda *a, **k: (_ for _ in ()).throw(AssertionError("AI 호출하면 안 됨")))
+    r = client.post("/conversation", json={"message": "안녕"}, headers=signup(client, "quick1")).json()
+    assert r["status"] == "OK" and "반가워요" in r["answer"]

@@ -536,9 +536,13 @@ def conversation(payload: ConversationIn, user: User = Depends(current_user), db
     plans.check_quota(db, user, "chat")
     message = payload.message.strip()
 
+    quick = None if ai.needs_safety_hold(message) else ai.quick_reply(message, user.name or "")
     if ai.needs_safety_hold(message):
         result = ai.AIResult(ai.SAFETY_ANSWER, "safety_rule")
         status_code = "SAFETY_HOLD"
+    elif quick:
+        result = ai.AIResult(quick, "quick_rule")
+        status_code = "OK"
     else:
         memories = list(db.scalars(select(Memory.content).where(Memory.user_id == user.id).order_by(Memory.id.desc()).limit(20)).all())
         limit = env_int("RUTI_MAX_PRODUCTS_IN_PROMPT", 15)

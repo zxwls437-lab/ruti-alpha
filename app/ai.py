@@ -136,6 +136,21 @@ AUDIENCES = {
 
 MAX_ANSWER_CHARS = 170
 
+# 인사·감사·소개·작별처럼 짧고 정해진 말은 AI 없이 바로 답한다 (빠르고 비용 0)
+# (단어 일부만 같아서 잘못 걸리지 않게: '하이'알루론산, '바이'오 같은 건 제외)
+_INTRO = ("소개", "누구야", "누구세요", "너 뭐야", "넌 뭐야", "뭐 할 수 있", "뭘 할 수 있", "뭐 해줄 수", "뭘 해줄 수", "무슨 기능",
+          "할 수 있는 게", "할수있는게", "뭐하는 앱", "뭐 하는 앱", "뭐하는 거야")
+_THANKS = ("고마워", "고맙", "감사해", "감사합", "감사요", "땡큐", "thank")
+_BYE_WORDS = {"바이", "bye", "잘자", "잘자요", "굿나잇", "빠이"}
+_BYE = ("다음에 봐", "나중에 봐", "수고해", "잘 자")
+_HELLO_WORDS = {"하이", "hi", "hello", "헬로", "ㅎㅇ", "반가워", "반가워요", "반갑습니다", "방가", "hey"}
+_QUICK_TEXT = {
+    "intro": "저는 피부 비서 RUTI예요 💧 성분표를 찍어 주시면 {n} 피부에 맞는지 바로 알려 드리고, 아침·저녁 루틴도 짜 드려요. 피부 고민이 있으면 편하게 말씀해 주세요.",
+    "thanks": "도움이 됐다니 저도 기뻐요 😊 또 궁금한 거 있으면 언제든 물어봐 주세요.",
+    "bye": "오늘도 피부 챙기느라 수고 많으셨어요 🌙 다음에 또 이야기해요.",
+    "hello": "반가워요 😊 오늘 피부는 어떠세요? 궁금한 거 있으면 편하게 물어봐 주세요.",
+}
+
 
 def with_name(answer: str, user_name: str) -> str:
     """답을 사용자 이름으로 시작하게 한다 (AI가 가끔 빼먹어서)."""
@@ -143,6 +158,30 @@ def with_name(answer: str, user_name: str) -> str:
     if not name or not answer or name in answer[:20]:
         return answer
     return f"{name}{'' if name.endswith('님') else '님'}, {answer}"
+
+
+def quick_kind(message: str) -> str | None:
+    t = re.sub(r"[!?.~,^]+", " ", message.lower()).strip()
+    if not t or len(t) > 20:
+        return None  # 길면 진짜 질문일 수 있어서 AI에게 맡긴다
+    tokens = [x.strip("ㅎㅋ") or x for x in t.split()]
+    if any(w in t for w in _INTRO):
+        return "intro"
+    if any(w in t for w in _THANKS):
+        return "thanks"
+    if any(x in _BYE_WORDS for x in tokens) or any(w in t for w in _BYE):
+        return "bye"
+    if any(x.startswith("안녕") or x in _HELLO_WORDS for x in tokens):
+        return "hello"
+    return None
+
+
+def quick_reply(message: str, user_name: str = "") -> str | None:
+    kind = quick_kind(message)
+    if not kind:
+        return None
+    name = (user_name or "").strip()
+    return with_name(_QUICK_TEXT[kind].format(n=f"{name}님" if name else "내"), name)
 
 
 def mentioned_products(answer: str, products: list[dict]) -> list[int]:
