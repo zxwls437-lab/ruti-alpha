@@ -135,3 +135,26 @@ def test_add_by_name_only(client):
     item = d["items"][0]
     assert item["step"] == "toner" and item["no_ingredients"] is True and item["slots"]
     assert d["routine"]["am"][0]["product_name"] == "라운드랩 독도 토너"
+
+
+def test_avatar_state():
+    from datetime import datetime
+    from app.plans import KST
+    now = datetime(2026, 11, 27, 21, 0, tzinfo=KST)
+    s = routine.avatar_state(["건성 피부", "트러블이 고민이에요"], [], set(), now)
+    assert s["concerns"] == ["acne", "dry"] and s["level"] == 1 and s["streak"] == 0 and s["mood"] == 0
+    days = {f"2026-11-{d}" for d in range(21, 28)}  # 7일 연속
+    good = routine.avatar_state(["트러블"], [("2026-11-26", 3), ("2026-11-27", 3)], days, now)
+    bad = routine.avatar_state(["트러블"], [("2026-11-26", 1), ("2026-11-27", 1)], days, now)
+    assert good["intensity"] < bad["intensity"]  # 기록이 좋을수록 옅어짐
+    assert good["streak"] == 7 and good["mood"] == 3 and good["level"] >= 2
+    got = {b["id"] for b in good["badges"] if b["got"]}
+    assert {"first_check", "first_log", "streak3", "streak7"} <= got and "streak14" not in got
+    # 오늘 아직 안 했으면 어제까지의 연속을 센다
+    assert routine.avatar_state([], [], {"2026-11-25", "2026-11-26"}, now)["streak"] == 2
+
+
+def test_avatar_endpoint(client):
+    headers = signup(client, "avatar1")
+    d = client.get("/routine/avatar", headers=headers).json()
+    assert d["level"] == 1 and d["level_name"] == "새싹" and len(d["badges"]) == 7

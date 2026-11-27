@@ -122,6 +122,50 @@
     return wrap;
   }
 
+  // 피부 아바타: 고른 고민과 오늘 기록대로 얼굴이 바뀌고(옅을수록 편안), 레벨이 오르면 꾸미기가 생긴다
+  function avatarSVG(st, size = 120) {
+    const k = st.intensity ?? 0.6, has = c => (st.concerns || []).includes(c), lv = st.level || 1, mood = st.mood || 0;
+    const skin = k < 0.4 ? '#FBE0CE' : '#F6D5BF';
+    const eyes = mood === 3 ? '<path d="M76 98q8-8 16 0M108 98q8-8 16 0" stroke="#3A3330" stroke-width="3.2" fill="none" stroke-linecap="round"/>'
+      : mood === 1 ? '<circle cx="84" cy="100" r="4" fill="#3A3330"/><circle cx="116" cy="100" r="4" fill="#3A3330"/><path d="M76 90l14-4M124 90l-14-4" stroke="#3A3330" stroke-width="2.4" stroke-linecap="round"/>'
+      : '<circle cx="84" cy="100" r="4.4" fill="#3A3330"/><circle cx="116" cy="100" r="4.4" fill="#3A3330"/><circle cx="85.5" cy="98.5" r="1.4" fill="#fff"/><circle cx="117.5" cy="98.5" r="1.4" fill="#fff"/>';
+    const mouth = mood === 3 ? '<path d="M88 124q12 12 24 0" stroke="#3A3330" stroke-width="3" fill="#E88C86" stroke-linecap="round"/>'
+      : mood === 1 ? '<path d="M90 128q10-7 20 0" stroke="#3A3330" stroke-width="3" fill="none" stroke-linecap="round"/>'
+      : '<path d="M90 124q10 7 20 0" stroke="#3A3330" stroke-width="3" fill="none" stroke-linecap="round"/>';
+    const o = v => (v * k).toFixed(2);
+    const marks = [
+      has('red') ? `<ellipse cx="72" cy="116" rx="16" ry="10" fill="#EE8C84" opacity="${o(.55)}"/><ellipse cx="128" cy="116" rx="16" ry="10" fill="#EE8C84" opacity="${o(.55)}"/>` : '',
+      has('acne') ? `<g fill="#D9786C" opacity="${o(1)}"><circle cx="66" cy="112" r="3.2"/><circle cx="74" cy="122" r="2.4"/><circle cx="132" cy="110" r="2.8"/><circle cx="126" cy="122" r="3.2"/><circle cx="104" cy="72" r="2.6"/></g>` : '',
+      has('dry') ? `<g stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="${o(.95)}"><path d="M62 104l6-3M64 110l5-1M136 104l-6-3M134 110l-5-1"/></g>` : '',
+      has('oil') ? `<ellipse cx="100" cy="74" rx="16" ry="6" fill="#fff" opacity="${o(.6)}"/><ellipse cx="100" cy="112" rx="4" ry="9" fill="#fff" opacity="${o(.5)}"/>` : '',
+      has('tone') ? `<g fill="#B98B6E" opacity="${o(.55)}"><circle cx="70" cy="100" r="2"/><circle cx="76" cy="96" r="1.6"/><circle cx="130" cy="98" r="2"/><circle cx="124" cy="104" r="1.5"/></g>` : '',
+      has('pore') ? `<g fill="#C79A82" opacity="${o(.7)}"><circle cx="96" cy="114" r="1"/><circle cx="104" cy="114" r="1"/><circle cx="100" cy="118" r="1"/><circle cx="94" cy="119" r=".9"/><circle cx="106" cy="119" r=".9"/></g>` : '',
+      has('wrinkle') ? `<g stroke="#C79A82" stroke-width="1.6" fill="none" opacity="${o(.8)}" stroke-linecap="round"><path d="M76 108q8 3 16 0M108 108q8 3 16 0M86 64q14-4 28 0"/></g>` : '',
+    ].join('');
+    const glow = k < 0.4 ? '<g fill="#fff" opacity=".9"><path class="av-spark" d="M150 64l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path class="av-spark d2" d="M52 70l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></g>' : '';
+    const deco = [
+      lv >= 2 ? '<g class="av-spark" fill="#FFD36E"><path d="M160 40l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></g>' : '',
+      lv >= 4 ? '<g transform="translate(58 50)"><circle r="7" fill="#F7A8B8"/><circle r="3" fill="#FFE08A"/>' +
+        [0, 72, 144, 216, 288].map(a => `<circle r="5" fill="#F7A8B8" transform="rotate(${a}) translate(0 -8)"/>`).join('') + '<circle r="3.4" fill="#FFE08A"/></g>' : '',
+      lv >= 6 ? '<path d="M74 34l10 14 16-18 16 18 10-14 4 26H70z" fill="#FFCF5C" stroke="#E4A92F" stroke-width="2" stroke-linejoin="round"/><circle cx="100" cy="40" r="3.5" fill="#F27C8C"/>' : '',
+      lv >= 8 ? '<circle cx="100" cy="104" r="86" fill="none" stroke="#FFE7A3" stroke-width="3" stroke-dasharray="2 10" class="av-halo"/>' : '',
+    ].join('');
+    return `<svg viewBox="0 0 200 200" width="${size}" height="${size}" role="img" aria-label="내 피부 아바타 레벨 ${lv}">
+      <circle cx="100" cy="104" r="92" fill="var(--soft,#EAF2EE)"/>
+      <path d="M44 104c0-46 26-70 56-70s56 24 56 70c0 6-2 12-4 16-2-34-20-50-52-50s-50 16-52 50c-2-4-4-10-4-16z" fill="#5B4636"/>
+      <ellipse cx="100" cy="108" rx="50" ry="56" fill="${skin}"/>
+      <ellipse cx="50" cy="110" rx="7" ry="10" fill="${skin}"/><ellipse cx="150" cy="110" rx="7" ry="10" fill="${skin}"/>
+      <path d="M52 92c4-30 24-44 48-44s44 14 48 44c-10-18-26-28-48-28s-38 10-48 28z" fill="#5B4636"/>
+      <ellipse cx="74" cy="118" rx="9" ry="5" fill="#F2A7A0" opacity=".45"/><ellipse cx="126" cy="118" rx="9" ry="5" fill="#F2A7A0" opacity=".45"/>
+      ${marks}${eyes}<path d="M100 104v8" stroke="#E0B49A" stroke-width="2.4" stroke-linecap="round"/>${mouth}${glow}${deco}
+    </svg>`;
+  }
+  function avatar(st, opts = {}) {
+    const box = document.createElement('div');
+    box.className = 'av-box'; box.innerHTML = avatarSVG(st, opts.size || 120);
+    return box;
+  }
+
   const CSS = `.p-art{flex:0 0 auto;display:flex;align-items:center;justify-content:center;border-radius:16px;background:var(--soft,#EAF2EE);overflow:hidden}
 .p-art img{width:100%;height:100%;object-fit:cover}
 .hero-art{margin:4px 0 14px}.hero-svg{width:100%;height:auto;display:block}
@@ -131,10 +175,12 @@
 .h-float{animation:hFloat 3.2s ease-in-out infinite}.h-float2{animation:hFloat 4.5s ease-in-out infinite}
 .h-bubble{animation:hBubble 4.2s ease-in infinite}.h-bubble.d2{animation-delay:1.4s}.h-bubble.d3{animation-delay:2.6s}
 .h-spin{animation:hSpin 24s linear infinite}.h-twinkle{animation:hTw 2.4s ease-in-out infinite}.h-twinkle.d2{animation-delay:.8s}.h-twinkle.d3{animation-delay:1.6s}
-@media (prefers-reduced-motion:reduce){.h-float,.h-float2,.h-bubble,.h-spin,.h-twinkle{animation:none}}`;
+@keyframes avSp{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}.av-spark{animation:avSp 2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}.av-spark.d2{animation-delay:.9s}
+@keyframes avHalo{to{stroke-dashoffset:-48}}.av-halo{animation:avHalo 6s linear infinite}
+@media (prefers-reduced-motion:reduce){.av-spark,.av-halo,.h-float,.h-float2,.h-bubble,.h-spin,.h-twinkle{animation:none}}`;
   if (!document.getElementById('art-style')) {
     const st = document.createElement('style'); st.id = 'art-style'; st.textContent = CSS; document.head.append(st);
   }
   const R = root.RUTI || root;
-  R.art = {product, productSVG, hero, kindOf};
+  R.art = {product, productSVG, hero, kindOf, avatar, avatarSVG};
 })(typeof RUTI !== 'undefined' ? {RUTI} : window);

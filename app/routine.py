@@ -348,3 +348,61 @@ def log_today(payload: LogIn, user: User = Depends(current_user), db: Session = 
 
 def delete_item_checks(db: Session, item_id: int) -> None:
     db.execute(delete(RoutineCheck).where(RoutineCheck.item_id == item_id))
+
+
+# ---------- 피부 아바타 + 레벨업 ----------
+# 원칙: 아바타 얼굴은 '사용자가 기록한 피부 상태'(고른 고민 + 오늘 피부 기록)만 보여준다. 제품 효과를 예측·약속하지 않는다.
+# 레벨·배지는 꾸준함(루틴 체크·기록한 날)으로만 오른다.
+AVATAR_CONCERNS = {"acne": ("트러블", "여드름"), "red": ("붉어짐", "홍조"), "dry": ("건조", "속건조", "당김", "건성"),
+                   "oil": ("피지", "번들", "지성"), "tone": ("잡티", "칙칙", "톤"), "pore": ("모공", "블랙헤드"), "wrinkle": ("주름", "탄력")}
+LEVELS = [(0, "새싹"), (30, "물방울"), (80, "촉촉"), (150, "말랑"), (250, "반짝"), (400, "빛나는"), (600, "보석"), (900, "별빛")]
+BADGES = [("first_check", "첫 루틴 체크", "🌱"), ("first_log", "첫 피부 기록", "📝"), ("streak3", "3일 연속", "🔥"),
+          ("streak7", "7일 연속", "💪"), ("streak14", "2주 연속", "🌟"), ("streak30", "30일 연속", "👑"), ("days30", "30일 기록", "🏅")]
+
+
+def _streak(days: set[str], now: datetime) -> int:
+    """오늘(또는 아직 안 했으면 어제)부터 거꾸로 이어진 날 수."""
+    d = now.date()
+    if d.strftime("%Y-%m-%d") not in days:
+        d -= timedelta(days=1)
+    n = 0
+    while d.strftime("%Y-%m-%d") in days:
+        n += 1
+        d -= timedelta(days=1)
+    return n
+
+
+def avatar_state(memories: list[str], logs: list[tuple[str, int]], check_days: set[str], now: datetime) -> dict:
+    text = " ".join(memories)
+    concerns = [k for k, words in AVATAR_CONCERNS.items() if any(w in text for w in words)]
+    logs = sorted(logs)
+    recent = [m for _, m in logs[-3:]]
+    # 최근 기록이 좋을수록 고민 표시가 옅어진다 (기록이 없으면 중간)
+    calm = (sum(recent) / len(recent) - 1) / 2 if recent else 0.4
+    intensity = round(max(0.15, 1 - 0.75 * calm), 2)
+    log_days = {d for d, _ in logs}
+    xp = 10 * len(check_days) + 5 * len(log_days) + 5 * max(0, _streak(check_days, now) - 1)
+    level_i = max(i for i, (need, _) in enumerate(LEVELS) if xp >= need)
+    cur, nxt = LEVELS[level_i][0], (LEVELS[level_i + 1][0] if level_i + 1 < len(LEVELS) else None)
+    streak = _streak(check_days, now)
+    got = {"first_check": bool(check_days), "first_log": bool(log_days), "streak3": streak >= 3, "streak7": streak >= 7,
+           "streak14": streak >= 14, "streak30": streak >= 30, "days30": len(check_days | log_days) >= 30}
+    week = lambda a, b: [m for d, m in logs if (now.date() - timedelta(days=b)).strftime("%Y-%m-%d") <= d <= (now.date() - timedelta(days=a)).strftime("%Y-%m-%d")]  # noqa: E731
+    first = [m for _, m in logs[:7]]
+    last7 = week(0, 6)
+    return {
+        "concerns": concerns, "intensity": intensity, "mood": logs[-1][1] if logs and logs[-1][0] == now.strftime("%Y-%m-%d") else 0,
+        "level": level_i + 1, "level_name": LEVELS[level_i][1], "xp": xp, "level_xp": cur, "next_xp": nxt,
+        "streak": streak, "check_days": len(check_days), "log_days": len(log_days),
+        "badges": [{"id": b, "name": n, "icon": i, "got": got[b]} for b, n, i in BADGES],
+        "compare": {"first_avg": round(sum(first) / len(first), 2) if first else None,
+                    "last7_avg": round(sum(last7) / len(last7), 2) if last7 else None, "enough": len(logs) >= 8},
+    }
+
+
+@router.get("/avatar")
+def my_avatar(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    memories = _memories(db, user)
+    logs = [(d, m) for d, m in db.execute(select(SkinLog.day, SkinLog.mood).where(SkinLog.user_id == user.id))]
+    check_days = set(db.scalars(select(RoutineCheck.day).where(RoutineCheck.user_id == user.id)))
+    return avatar_state(memories, logs, check_days, datetime.now(KST))

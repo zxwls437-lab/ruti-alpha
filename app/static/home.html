@@ -32,6 +32,13 @@
 .starter{border:1.5px solid var(--brand)}.starter .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}.starter .bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .4s}.st-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);width:100%;background:none;text-align:left;font-weight:400;min-height:52px}
 .st-row:last-child{border-bottom:0}.st-num{width:28px;height:28px;flex:0 0 28px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted)}
 .st-row.done .st-num{background:var(--brand);border-color:var(--brand);color:#fff}.st-row.done b{text-decoration:line-through;color:var(--muted)}.st-row .go{margin-left:auto;color:var(--brand);font-weight:700;font-size:13px;white-space:nowrap}
+.av-card{display:flex;align-items:center;gap:14px;width:100%;text-align:left;color:var(--text);font-weight:400;background:var(--card);border:1px solid var(--line);padding:14px 16px;margin-bottom:12px}
+.av-card .av-box{width:92px;height:92px;flex:0 0 92px}.av-card .av-box svg{width:92px;height:92px}.av-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.av-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.av-top b{font-size:16px}.av-streak{font-size:12.5px;font-weight:800;color:#C2622D;background:#FCEBDD;border-radius:12px;padding:3px 9px;white-space:nowrap}
+.av-bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;display:block}.av-bar i{display:block;height:100%;background:linear-gradient(90deg,#9CCBB8,var(--brand));transition:width .6s}
+.av-hint{font-size:12.5px;line-height:1.45}.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}.badge{background:var(--soft);border-radius:14px;padding:8px 4px;text-align:center;font-size:11.5px}
+.badge span{display:block;font-size:22px}.badge.off{opacity:.35;filter:grayscale(1)}
+@media (prefers-color-scheme:dark){.av-streak{background:#3D2E25;color:#F3B58A}}
 </style></head><body>
 <nav><b>RUTI</b><a href="/home" class="on">홈</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -54,6 +61,15 @@
       <div class="bar" style="margin:8px 0 4px"><i id="starterBar"></i></div>
       <div id="starterSteps"></div>
     </section>
+
+    <button type="button" class="card av-card hidden" id="avCard" aria-label="내 피부 아바타 자세히 보기">
+      <span id="avArt"></span>
+      <span class="av-info">
+        <span class="av-top"><b id="avLevel"></b><span id="avStreak" class="av-streak"></span></span>
+        <span class="av-bar"><i id="avBar"></i></span>
+        <span class="muted av-hint" id="avHint"></span>
+      </span>
+    </button>
 
     <a class="today" href="/routine"><span class="go">루틴 보기 ›</span><h2>오늘의 루틴</h2>
       <div class="slots"><div class="slot"><b>☀️ 아침</b><div class="muted" id="amText"></div><div class="bar"><i id="amBar"></i></div></div>
@@ -129,7 +145,7 @@ function renderRoutine(){
   const todayLog = routine.logs.find(l => l.day === routine.today);
   $('moodCard').classList.toggle('hidden', !routine.can_log);
   $('moods').replaceChildren(...MOODS.map(([v, e, t]) => {
-    const b = el('button', {type: 'button', onclick: async () => { routine = await api('/routine/log', {method: 'PUT', body: {mood: v}}); renderRoutine(); }}, el('span', {}, e), t);
+    const b = el('button', {type: 'button', onclick: async () => { routine = await api('/routine/log', {method: 'PUT', body: {mood: v}}); renderRoutine(); loadAvatar(); }}, el('span', {}, e), t);
     b.setAttribute('aria-pressed', String(!!todayLog && todayLog.mood === v)); return b;
   }));
 }
@@ -151,6 +167,34 @@ function renderStarter(){
       : el('button', {type: 'button', class: 'st-row' + (started[k] ? ' done' : ''), onclick: go}, ...inner);
   }));
 }
+// 피부 아바타 + 레벨 (기록한 대로 바뀌고, 꾸준함으로 레벨업)
+let avatar = null;
+async function loadAvatar(){
+  try { avatar = await api('/routine/avatar'); } catch { return; }
+  const a = avatar;
+  $('avCard').classList.remove('hidden');
+  $('avArt').replaceChildren(RUTI.art.avatar(a, {size: 92}));
+  $('avLevel').textContent = `Lv.${a.level} ${a.level_name}`;
+  $('avStreak').textContent = a.streak ? `🔥 ${a.streak}일 연속` : '';
+  $('avStreak').classList.toggle('hidden', !a.streak);
+  $('avBar').style.width = a.next_xp ? `${Math.round((a.xp - a.level_xp) / (a.next_xp - a.level_xp) * 100)}%` : '100%';
+  $('avHint').textContent = !a.log_days ? '오늘 피부를 기록하면 아바타가 내 피부를 따라 바뀌어요'
+    : a.mood === 0 ? '오늘 피부는 어떤가요? 아래에서 기록해 주세요' : a.next_xp ? `다음 레벨까지 ${a.next_xp - a.xp}점 · 루틴 체크 +10, 피부 기록 +5` : '최고 레벨이에요 ✨';
+}
+function avatarSheet(){
+  const a = avatar; if (!a) return;
+  const face = v => v == null ? '·' : v >= 2.5 ? '😊' : v >= 1.75 ? '😐' : '😣';
+  RUTI.sheet(el('div', {style: 'display:flex;justify-content:center'}, RUTI.art.avatar(a, {size: 170})),
+    el('h2', {style: 'text-align:center;margin:4px 0 2px'}, `Lv.${a.level} ${a.level_name}`),
+    el('p', {class: 'muted', style: 'text-align:center;margin:0 0 10px;font-size:13px'}, `루틴 ${a.check_days}일 · 피부 기록 ${a.log_days}일 · ${a.streak ? '🔥 ' + a.streak + '일 연속' : '오늘부터 시작해요'}`),
+    a.compare.enough ? el('div', {class: 'warn', style: 'text-align:center'}, `처음 일주일 ${face(a.compare.first_avg)} → 최근 일주일 ${face(a.compare.last7_avg)}`) : null,
+    el('h3', {}, '배지'),
+    el('div', {class: 'badges'}, ...a.badges.map(b => el('div', {class: 'badge' + (b.got ? '' : ' off')}, el('span', {}, b.icon), b.name))),
+    el('p', {class: 'muted', style: 'font-size:12.5px;line-height:1.6'},
+      '아바타 얼굴은 내가 고른 피부 고민과 "오늘 피부는 어때요?" 기록대로 바뀌어요. 예측이나 효과 보장이 아니라 내 기록을 그림으로 보여주는 거예요. ' +
+      '레벨은 루틴을 체크하고 피부를 기록한 날이 쌓일수록 올라가요 (Lv.2 반짝이, Lv.4 꽃핀, Lv.6 왕관, Lv.8 별빛).'));
+}
+$('avCard').addEventListener('click', avatarSheet);
 async function loadSkin(){
   try {
     const {memories} = await api('/memory');
@@ -159,7 +203,7 @@ async function loadSkin(){
     pickTip(memories.map(m => m.content));
   } catch { $('skinBar').classList.add('hidden'); pickTip([]); started.skin = true; renderStarter(); }
 }
-$('skinBar').addEventListener('click', () => RUTI.skin.open(async () => { await loadSkin(); routine = await api('/routine/today'); renderRoutine(); }));
+$('skinBar').addEventListener('click', () => RUTI.skin.open(async () => { await loadSkin(); routine = await api('/routine/today'); renderRoutine(); loadAvatar(); }));
 async function loadRecent(){
   const V = {good: ['green', '✓ 잘 맞아요'], check: ['orange', '확인 필요'], avoid: ['red', '주의']};
   const {scans} = await api('/scan/history?limit=3');
@@ -181,7 +225,7 @@ async function start(){
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
   $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
   $('heroArt').replaceChildren(RUTI.art.hero());
-  loadSkin(); loadRecent(); loadPosts();
+  loadSkin(); loadRecent(); loadPosts(); loadAvatar();
   routine = await api('/routine/today'); renderRoutine();
   started.vanity = routine.items.length > 0; renderStarter();
   RUTI.skin.promptOnce(me, loadSkin);
