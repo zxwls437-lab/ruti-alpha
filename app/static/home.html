@@ -39,6 +39,18 @@
 .av-hint{font-size:12.5px;line-height:1.45}.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}.badge{background:var(--soft);border-radius:14px;padding:8px 4px;text-align:center;font-size:11.5px}
 .badge span{display:block;font-size:22px}.badge.off{opacity:.35;filter:grayscale(1)}
 @media (prefers-color-scheme:dark){.av-streak{background:#3D2E25;color:#F3B58A}}
+.hello{margin:2px 0 8px;font-size:15px}
+.sky{border-radius:24px;padding:16px;margin-bottom:12px;background:linear-gradient(180deg,#FFE9D6,#FCD3C1);color:#3A3330;position:relative;overflow:hidden}
+.sky.t-day{background:linear-gradient(180deg,#E2F2EA,#CDE6DA)}.sky.t-pm{background:linear-gradient(180deg,#2E2A4A,#46406B);color:#F4EEDF}
+.sky::after{content:"";position:absolute;right:18px;top:14px;width:30px;height:30px;border-radius:50%;background:#FFC36B;box-shadow:0 0 0 6px rgba(255,195,107,.25)}
+.sky.t-pm::after{background:#F6E7B5;box-shadow:-8px -6px 0 0 #2E2A4A inset}
+.sky-top{display:flex;align-items:center;gap:14px}.sky-av{background:none;padding:0;min-height:0;border-radius:50%;flex:0 0 96px}
+.sky-av .av-box svg{width:96px;height:96px;display:block}.sky-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-right:34px}
+.skinlink{background:rgba(255,255,255,.55);color:inherit;font-size:12.5px;font-weight:600;padding:5px 10px;min-height:32px;border-radius:14px;align-self:flex-start;text-align:left}
+.sky.t-pm .skinlink{background:rgba(255,255,255,.14)}.sky .av-bar{background:rgba(255,255,255,.6)}
+.sky-q{font-size:16px;margin:14px 0 8px}.sky .moods button{background:rgba(255,255,255,.75);border-color:transparent}
+.sky.t-pm .moods button{background:rgba(255,255,255,.14);color:#F4EEDF}
+.sky .moods button[aria-pressed="true"]{background:#fff;color:var(--brand);border-color:var(--brand)}
 </style></head><body>
 <nav><b>RUTI</b><a href="/home" class="on">홈</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -52,24 +64,30 @@
   </form>
 
   <div id="app" class="wrap hidden">
-    <div class="hello"><span class="muted" id="helloName">안녕하세요</span><h1>오늘 피부는 어떠세요?</h1></div>
-    <div id="heroArt"></div>
-    <button type="button" class="skinbar" id="skinBar" aria-label="내 피부 정보 고치기"><span class="muted">내 피부</span><span id="skinChips" class="chip-row" style="margin:0"></span><b>수정</b></button>
+    <div class="hello"><span class="muted" id="helloName">안녕하세요</span></div>
+
+    <!-- 한 카드: 시간대 하늘 + 내 아바타 + 레벨 + 오늘 피부 기록 -->
+    <section class="sky" id="sky">
+      <div class="sky-top">
+        <button type="button" class="sky-av" id="avCard" aria-label="내 피부 아바타 자세히 보기"><span id="avArt"></span></button>
+        <div class="sky-info">
+          <div class="av-top"><b id="avLevel">Lv.1 새싹</b><span id="avStreak" class="av-streak hidden"></span></div>
+          <span class="av-bar"><i id="avBar"></i></span>
+          <button type="button" class="skinlink" id="skinBar" aria-label="내 피부 정보 고치기"><span id="skinChips"></span> ›</button>
+        </div>
+      </div>
+      <div id="moodCard">
+        <h2 class="sky-q" id="skyQ">오늘 피부는 어때요?</h2>
+        <div class="moods" id="moods"></div>
+      </div>
+      <span class="muted av-hint hidden" id="avHint"></span>
+    </section>
 
     <section class="card starter hidden" id="starter">
       <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">RUTI 시작하기</h2><span class="muted" id="starterCount"></span></div>
       <div class="bar" style="margin:8px 0 4px"><i id="starterBar"></i></div>
       <div id="starterSteps"></div>
     </section>
-
-    <button type="button" class="card av-card hidden" id="avCard" aria-label="내 피부 아바타 자세히 보기">
-      <span id="avArt"></span>
-      <span class="av-info">
-        <span class="av-top"><b id="avLevel"></b><span id="avStreak" class="av-streak"></span></span>
-        <span class="av-bar"><i id="avBar"></i></span>
-        <span class="muted av-hint" id="avHint"></span>
-      </span>
-    </button>
 
     <a class="today" href="/routine"><span class="go">루틴 보기 ›</span><h2>오늘의 루틴</h2>
       <div class="slots"><div class="slot"><b>☀️ 아침</b><div class="muted" id="amText"></div><div class="bar"><i id="amBar"></i></div></div>
@@ -80,22 +98,8 @@
       <a href="/chat"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span><b>RUTI에게 묻기</b><span class="muted">피부 고민 상담</span></a>
     </div>
 
-    <section class="card" id="moodCard">
-      <h2>오늘 피부 컨디션</h2>
-      <div class="moods" id="moods"></div>
-    </section>
-
-    <div class="tip"><div class="k" id="tipKind">오늘의 피부 팁</div><p id="tip"></p></div>
-
-    <section class="card listcard">
-      <h2>최근 분석한 화장품 <a href="/scan">더 보기</a></h2>
-      <div id="recent"></div>
-    </section>
-
-    <section class="card listcard">
-      <h2>커뮤니티 새 글 <a href="/community">더 보기</a></h2>
-      <div id="posts"></div>
-    </section>
+    <!-- 홈을 단순하게: 팁·최근 분석·커뮤니티는 각자 탭에 있어서 홈에서는 숨김 (시작하기 체크에만 씀) -->
+    <div hidden><p id="tip"></p><span id="tipKind"></span><div id="recent"></div><div id="posts"></div></div>
   </div>
 </main>
 <script src="/static/common.js"></script>
@@ -144,6 +148,7 @@ function renderRoutine(){
   }
   const todayLog = routine.logs.find(l => l.day === routine.today);
   $('moodCard').classList.toggle('hidden', !routine.can_log);
+  $('skyQ').textContent = todayLog ? '오늘 피부 기록 완료 ✓ 아바타가 바뀌었어요' : '오늘 피부는 어때요?';
   $('moods').replaceChildren(...MOODS.map(([v, e, t]) => {
     const b = el('button', {type: 'button', onclick: async () => { routine = await api('/routine/log', {method: 'PUT', body: {mood: v}}); renderRoutine(); loadAvatar(); }}, el('span', {}, e), t);
     b.setAttribute('aria-pressed', String(!!todayLog && todayLog.mood === v)); return b;
@@ -199,7 +204,7 @@ async function loadSkin(){
   try {
     const {memories} = await api('/memory');
     started.skin = memories.length > 0; renderStarter();
-    $('skinChips').replaceChildren(...(memories.length ? RUTI.skin.chips(memories.slice(0, 4)) : [el('span', {class: 'muted'}, '골라 주세요')]));
+    $('skinChips').textContent = memories.length ? '내 피부 · ' + memories.slice(0, 3).map(m => RUTI.skin.label(m.content)).join(' · ') : '내 피부 정보 고르기';
     pickTip(memories.map(m => m.content));
   } catch { $('skinBar').classList.add('hidden'); pickTip([]); started.skin = true; renderStarter(); }
 }
@@ -224,8 +229,10 @@ async function start(){
   if (me.needs_consent && me.needs_consent.length) { $('authForm').classList.add('hidden'); return RUTI.afterLogin(me, start); }
   $('authForm').classList.add('hidden'); $('app').classList.remove('hidden');
   $('helloName').textContent = `안녕하세요, ${me.name || me.nickname || ''}님`;
-  $('heroArt').replaceChildren(RUTI.art.hero());
-  loadSkin(); loadRecent(); loadPosts(); loadAvatar();
+  const hr = new Date().getHours();
+  $('sky').classList.add(hr < 11 ? 't-am' : hr < 18 ? 't-day' : 't-pm');
+  $('helloName').textContent = `${hr < 11 ? '좋은 아침이에요' : hr < 18 ? '안녕하세요' : '오늘도 수고했어요'}, ${me.name || me.nickname || ''}님`;
+  loadSkin(); loadRecent(); loadAvatar();
   routine = await api('/routine/today'); renderRoutine();
   started.vanity = routine.items.length > 0; renderStarter();
   RUTI.skin.promptOnce(me, loadSkin);

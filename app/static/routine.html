@@ -38,6 +38,9 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 .moods button{padding:8px 4px;white-space:nowrap;font-size:12.5px}
 .ex-art{flex-direction:row!important;align-items:center!important;gap:10px!important}.ex-art .p-art{width:42px;height:48px;border-radius:10px}.ex-txt{display:flex;flex-direction:column;gap:2px;min-width:0}.ex-txt span{font-size:12.5px;color:var(--muted)}
 .sheet-art{display:flex;justify-content:center;margin:4px 0 6px}.sheet-art .p-art{width:120px;height:136px}
+.rec-open{display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:var(--text);font-weight:400;background:linear-gradient(135deg,var(--soft),var(--card));border:1px solid var(--line);padding:16px;margin-bottom:12px}
+.rec-ic{font-size:24px}.rec-t{flex:1;display:flex;flex-direction:column;gap:2px}.rec-t b{font-size:16px}.rec-t .muted{font-size:13px}.rec-open .go{color:var(--brand);font-size:22px;font-weight:700}
+.vfold summary{cursor:pointer;color:var(--brand);font-weight:700;padding:10px 0 2px;min-height:40px;list-style:none}.vfold summary::-webkit-details-marker{display:none}.vfold summary::before{content:"▸ "}.vfold[open] summary::before{content:"▾ "}
 </style></head><body>
 <nav><b>RUTI</b><a href="/routine" class="on">루틴</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
@@ -60,31 +63,32 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 
     <div id="warnings"></div>
 
-    <section class="card">
-      <div class="row" style="justify-content:space-between"><h2 style="margin:0">RUTI 추천 루틴</h2><button type="button" class="ghost small" id="skinEdit">내 피부 수정</button></div>
+    <!-- 추천 루틴은 버튼 하나로 접어 두고, 누르면 아래에서 올라오는 창으로 -->
+    <button type="button" class="card rec-open" id="recOpen"><span class="rec-ic">✨</span><span class="rec-t"><b>RUTI 추천 루틴</b><span class="muted" id="recSummary"></span></span><span class="go">›</span></button>
+    <div hidden><div id="recBox">
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">RUTI 추천 루틴</h2><button type="button" class="ghost small" id="skinEdit">내 피부 수정</button></div>
       <p class="muted" id="recBase" style="margin:6px 0 4px"></p>
       <div class="rec" id="rec"></div>
       <div id="recAvoid"></div>
       <div id="recNotes"></div>
       <p class="muted" style="font-size:12px;margin:10px 0 0">피부 타입·고민에 따른 일반적인 스킨케어 안내예요. 의료 진단이 아니에요.</p>
-    </section>
+    </div></div>
 
+    <div hidden><section class="card" id="moodCard">
+      <h2>오늘 피부는 어때요?</h2>
+      <div class="moods" id="moods"></div>
+      <div class="week" id="week"></div>
+    </section></div>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">내 화장대 <span class="muted" id="vanityCount" style="font-size:14px"></span></h2><button type="button" class="ghost small" id="addProduct" style="font-weight:700">+ 제품 추가</button></div>
+      <details class="vfold"><summary>제품 목록 보기</summary><div id="vanity" class="vlist"></div></details>
+    </section>
     <section class="card hidden" id="remindCard">
       <h2 style="margin:0 0 4px">🔔 루틴 알림</h2>
       <p class="muted" style="margin:0 0 10px;font-size:13.5px">정한 시간에 폰으로 살짝 알려드려요.</p>
       <div class="remind-row"><label><input type="checkbox" id="remAmOn"> ☀️ 아침</label><input type="time" id="remAm" value="08:00"></div>
       <div class="remind-row"><label><input type="checkbox" id="remPmOn"> 🌙 저녁</label><input type="time" id="remPm" value="22:00"></div>
-    </section>
-    <section class="card" id="moodCard">
-      <h2>오늘 피부는 어때요?</h2>
-      <div class="moods" id="moods"></div>
-      <div class="week" id="week"></div>
-    </section>
-
-    <section class="card">
-      <div class="row" style="justify-content:space-between"><h2 style="margin:0">내 화장대</h2><button type="button" class="ghost small" id="addProduct" style="font-weight:700">+ 제품 추가</button></div>
-      <p class="muted" style="margin:6px 0 4px">이름만 적어 담거나, 뒷면을 찍어 담을 수 있어요.</p>
-      <div id="vanity" class="vlist"></div>
     </section>
   </div>
 </main>
@@ -94,6 +98,8 @@ button.small{min-height:36px;padding:4px 12px;font-size:13px}
 <script src="/static/art.js"></script>
 <script>
 const $ = id => document.getElementById(id), {el, api} = RUTI;
+const recBox = document.getElementById('recBox');
+const R$ = id => recBox.querySelector('#' + id);
 let data = null, slot = new Date().getHours() < 15 ? 'am' : 'pm';
 const MOODS = [[1, '😣', '안 좋아요'], [2, '😐', '보통이에요'], [3, '😊', '좋아요']];
 
@@ -125,9 +131,10 @@ function render(){
     w.explainer ? el('button', {type: 'button', class: 'ghost small', style: 'margin-top:6px', onclick: () => RUTI.explainer.open([{scenario: w.explainer, ingredient: '레티놀 + 각질 제거', memo: '', personal: false}], {memories: [], products: w.products})}, '▶ 그림으로 보기') : null)));
   // 추천
   const rec = data.recommendation;
-  $('recBase').textContent = rec.needs_skin_info ? '피부 정보를 고르면 나에게 맞춘 루틴을 추천해 드려요. 지금은 기본 루틴이에요.'
+  $('recSummary').textContent = `${rec.needs_skin_info ? '기본 루틴' : rec.based_on.slice(0, 2).map(RUTI.skin.label).join(' · ') + ' 맞춤'} · ${slot === 'am' ? '아침' : '저녁'} ${rec[slot].length}단계`;
+  R$('recBase').textContent = rec.needs_skin_info ? '피부 정보를 고르면 나에게 맞춘 루틴을 추천해 드려요. 지금은 기본 루틴이에요.'
     : `${rec.based_on.map(RUTI.skin.label).join(' · ')} 기준이에요`;
-  $('rec').replaceChildren(...rec[slot].map(st => el('div', {class: 'rec-step'}, el('div', {style: 'flex:1;min-width:0'},
+  R$('rec').replaceChildren(...rec[slot].map(st => el('div', {class: 'rec-step'}, el('div', {style: 'flex:1;min-width:0'},
     el('b', {}, st.title), el('p', {}, st.why),
     st.look_for.length ? el('div', {class: 'chip-row', style: 'margin:4px 0 0'}, ...st.look_for.map(f => el('span', {class: 'tag'}, f))) : null,
     (() => { const fit = st.mine.filter(m => m.fits), other = st.mine.filter(m => !m.fits);
@@ -136,8 +143,8 @@ function render(){
     el('div', {style: 'display:flex;gap:14px;flex-wrap:wrap'},
       el('button', {type: 'button', class: 'linkish', onclick: () => RUTI.usage.open({category: usageKind(st)})}, '▶ 이렇게 발라요'),
       st.examples ? el('button', {type: 'button', class: 'linkish', onclick: () => showExamples(st)}, '🔎 제품 예시') : null)))));
-  $('recAvoid').replaceChildren(...(rec.avoid.length ? [el('p', {class: 'warn', style: 'margin-top:10px'}, '피하면 좋은 성분: ' + rec.avoid.join(', '))] : []));
-  $('recNotes').replaceChildren(...rec.notes.map(n => el('p', {class: 'muted', style: 'margin:6px 0;font-size:13.5px'}, '💡 ' + n)));
+  R$('recAvoid').replaceChildren(...(rec.avoid.length ? [el('p', {class: 'warn', style: 'margin-top:10px'}, '피하면 좋은 성분: ' + rec.avoid.join(', '))] : []));
+  R$('recNotes').replaceChildren(...rec.notes.map(n => el('p', {class: 'muted', style: 'margin:6px 0;font-size:13.5px'}, '💡 ' + n)));
   // 피부 컨디션
   const todayLog = data.logs.find(l => l.day === data.today);
   $('moodCard').classList.toggle('hidden', !data.can_log);
@@ -152,6 +159,7 @@ function render(){
     return el('div', {}, el('span', {}, log ? MOODS[log.mood - 1][1] : '·'), '일월화수목금토'[x.getDay()]);
   }));
   // 화장대
+  $('vanityCount').textContent = data.items.length ? `${data.items.length}개` : '';
   $('vanity').replaceChildren(...(data.items.length ? data.items.map(i => el('div', {class: 'row'},
     el('span', {style: 'min-width:0'}, i.product_name, el('span', {class: 'muted', style: 'margin-left:6px;font-size:12px'}, `${i.step_label} · ${i.slots.map(s => s === 'am' ? '아침' : '저녁').join('·') || '안 씀'}`),
       i.no_ingredients ? el('a', {class: 'noing', href: '/scan'}, '성분 없음 · 뒷면 찍으면 궁합까지 봐요') : null),
@@ -308,7 +316,8 @@ async function webReminders(){
   window.RUTI_onReminders = r => RUTI.toast(r === 'ok' ? '알림을 저장했어요' : r === 'denied' ? '폰 설정에서 RUTI 알림을 허용해 주세요' : '시간을 다시 골라 주세요');
   for (const id of ['remAmOn', 'remPmOn', 'remAm', 'remPm']) $(id).addEventListener('change', apply);
 })();
-$('skinEdit').addEventListener('click', () => RUTI.skin.open(async () => { data = await api('/routine/today'); render(); }));
+$('recOpen').addEventListener('click', () => RUTI.sheet(recBox));
+R$('skinEdit').addEventListener('click', () => RUTI.skin.open(async () => { data = await api('/routine/today'); render(); }));
 
 async function start(){
   let me;
