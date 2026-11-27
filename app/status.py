@@ -2,9 +2,9 @@
 
 STATUS = {
     "project": "RUTI",
-    "as_of": "2026-11-04",
+    "as_of": "2026-11-27",
     "estimated_progress_percent": 75,
-    "progress_note": "서버 기능은 대부분 갖춰졌어요. 남은 큰 일: 실제 데이터로 정확도 검증, 약관 문서, 배포, 앱(Expo) 개발, 스토어 결제 연동.",
+    "progress_note": "서버 기능은 대부분 갖춰졌고 웹은 배포됐어요(ruti.onrender.com). 남은 큰 일: 실제 데이터로 정확도 검증, 약관 문서 확정, 앱(Expo) 마무리, 스토어 결제 연동.",
     "milestones": [
         {"name": "서버·DB·AI 호출 관문", "status": "완료 (예비 AI 전환, 캐시, 비용 기록)"},
         {"name": "회원가입·로그인·동의", "status": "완료 (이름·닉네임, 동의 이력, 탈퇴·내려받기)"},
@@ -18,14 +18,15 @@ STATUS = {
         {"name": "요금제·이용 한도", "status": "완료 · 스토어 결제 연동 전"},
         {"name": "식약처 기능성 제품", "status": "API 3개 연결 대기"},
         {"name": "앱 화면 디자인", "status": "시안 완료 (14개 화면)"},
-        {"name": "배포 / 앱(Expo)", "status": "준비됨 · 시작 전"},
+        {"name": "웹 배포 (Render + PostgreSQL)", "status": "완료 (ruti.onrender.com)"},
+        {"name": "앱(Expo)", "status": "개발 중 (mobile/)"},
     ],
     "next_steps": [
         "실제 화장품 20개 이상으로 사진 분석 정확도 테스트",
         "실제 OpenAI 키로 상담 품질 점검(run_eval, 질문 33개)",
         "이용약관·개인정보 처리방침 실제 문서 작성 및 검토",
         "식약처 기능성 제품 API 3개 연결",
-        "클라우드 배포 (PostgreSQL + HTTPS) 후 30명 실사용 테스트",
+        "배포된 서버로 30명 실사용 테스트 (출시 전 서버 유료 요금제 전환 검토: 무료는 15분 쉬면 잠듦)",
         "Expo 앱 개발, App Store·Google Play 구독 결제 연동",
     ],
 }

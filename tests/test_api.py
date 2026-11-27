@@ -388,3 +388,15 @@ def test_error_log(client):
     assert client.get("/admin/errors", headers=signup(client, "plainerr1")).status_code == 403
     client.delete("/admin/errors", headers=admin)
     assert client.get("/admin/errors", headers=admin).json()["errors"] == []
+
+
+def test_head_requests_and_security_headers(client):
+    """서버 감시 도구의 HEAD 요청이 405가 아니라 200이고, 본문 없이 보안 헤더가 붙는다."""
+    for path in ("/", "/health", "/chat"):
+        r = client.head(path)
+        assert r.status_code == 200, path
+        assert r.content == b""
+    r = client.get("/chat")
+    assert "max-age=" in r.headers["Strict-Transport-Security"]
+    assert "frame-ancestors 'none'" in r.headers["Content-Security-Policy"]
+    assert client.head("/auth/signup").status_code == 405  # POST 전용 주소는 그대로

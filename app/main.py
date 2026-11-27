@@ -82,11 +82,37 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    # 항상 https로만 접속 (http 접속에서는 브라우저가 무시하므로 로컬 개발에는 영향 없음)
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    # 화면 스크립트는 그대로 두고, 다른 사이트에 끼워 넣기·플러그인·base 태그 바꿔치기·외부로 폼 보내기만 막는다
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'")
     # 화면 파일은 항상 최신 버전을 확인하게 한다 (업데이트 후 옛 화면이 남아 오류 나는 것 방지)
     path = request.url.path
     if (path in ("/", "/home", "/routine", "/dev", "/chat", "/scan", "/community", "/mypage", "/admin") or path.startswith("/static/")) and not path.startswith("/static/icons/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
+
+
+class HeadAsGet:
+    """HEAD 요청을 GET처럼 처리하고 본문만 뺀다. 서버 감시 도구(UptimeRobot 등)가 HEAD로 확인할 때 405가 나서
+    '서버 다운'으로 잘못 알리는 것을 막는다."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "HEAD":
+            return await self.app(scope, receive, send)
+
+        async def send_without_body(message):
+            if message["type"] == "http.response.body":
+                message = {**message, "body": b""}
+            await send(message)
+
+        await self.app({**scope, "method": "GET"}, receive, send_without_body)
+
+
+app.add_middleware(HeadAsGet)
 
 
 def client_ip(request: Request) -> str:
