@@ -38,13 +38,18 @@ def _float(name: str, default: float) -> float:
         return default
 
 
-def providers() -> list[Provider]:
+def providers(purpose: str = "") -> list[Provider]:
     out = []
     key = env("OPENAI_API_KEY")
     if key:
         model = env("OPENAI_MODEL", "gpt-4.1-mini")
+        price_in, price_out = _float("OPENAI_PRICE_INPUT_PER_M", 0.40), _float("OPENAI_PRICE_OUTPUT_PER_M", 1.60)
+        if purpose == "chat" and env("OPENAI_CHAT_MODEL"):
+            # 상담만 더 큰 모델로 (상황을 더 잘 읽음). 성분 분석·사진은 그대로 저렴한 모델
+            model = env("OPENAI_CHAT_MODEL")
+            price_in, price_out = _float("OPENAI_CHAT_PRICE_INPUT_PER_M", 2.0), _float("OPENAI_CHAT_PRICE_OUTPUT_PER_M", 8.0)
         out.append(Provider("primary", env("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"), key, model,
-                            env("OPENAI_VISION_MODEL") or model, _float("OPENAI_PRICE_INPUT_PER_M", 0.40), _float("OPENAI_PRICE_OUTPUT_PER_M", 1.60)))
+                            env("OPENAI_VISION_MODEL") or model, price_in, price_out))
     fb_key, fb_url, fb_model = env("LLM_FALLBACK_API_KEY"), env("LLM_FALLBACK_BASE_URL"), env("LLM_FALLBACK_MODEL")
     if fb_key and fb_url and fb_model:
         out.append(Provider("fallback", fb_url.rstrip("/"), fb_key, fb_model, env("LLM_FALLBACK_VISION_MODEL") or fb_model,
@@ -115,8 +120,9 @@ class ResponseCache:
         self._data: OrderedDict[str, tuple[float, LLMResult]] = OrderedDict()
 
     @staticmethod
-    def key(messages: list, schema: dict | None, vision: bool, max_tokens: int) -> str:
-        raw = json.dumps({"m": messages, "s": schema, "v": vision, "t": max_tokens}, sort_keys=True, ensure_ascii=False)
+    def key(messages: list, schema: dict | None, vision: bool, max_tokens: int, model: str = "") -> str:
+        # 모델이 바뀌면 예전 모델의 저장된 답을 쓰지 않는다
+        raw = json.dumps({"m": messages, "s": schema, "v": vision, "t": max_tokens, "model": model}, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def get(self, key: str) -> LLMResult | None:
@@ -221,14 +227,14 @@ def _schema_fallback_messages(messages: list, schema: dict) -> list:
 
 def chat(messages: list, *, purpose: str, schema: dict | None = None, max_tokens: int = 500, vision: bool = False,
          timeout: int = 30, use_cache: bool = True) -> LLMResult:
-    provs = providers()
+    provs = providers(purpose)
     if not provs:
         raise LLMError("not_configured")
     budget = _float("RUTI_DAILY_BUDGET_USD", 0.0)
     if budget > 0 and usage.cost_today() >= budget:
         raise LLMError("budget")
 
-    ckey = ResponseCache.key(messages, schema, vision, max_tokens) if use_cache else None
+    ckey = ResponseCache.key(messages, schema, vision, max_tokens, provs[0].vision_model if vision else provs[0].model) if use_cache else None
     if ckey:
         hit = cache.get(ckey)
         if hit:
