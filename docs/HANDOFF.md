@@ -122,3 +122,5 @@
 - 2026-11-27 상담 AI: 상담만 `OPENAI_CHAT_MODEL=gpt-4.1`(Render 환경 변수, 대표 승인) — 성분 분석·사진은 `OPENAI_MODEL=gpt-4.1-mini` 그대로.
   응답 캐시 키에 모델 포함. 인사·소개·감사·작별은 AI 없이 즉시(`ai.quick_reply`). 답은 이름으로 시작(`with_name`), 170자 넘거나
   제품 2개 이상이면 한 번 다시 쓰기. 약·시술은 못 하는 이유를 솔직히. 특정 대상(매터니티·베이비·남성)용 제품 거르기. 피부 아바타·레벨업(`/routine/avatar`).
+- 2026-11-27 (대표 지시) 모든 AI를 gpt-4.1로: `OPENAI_MODEL=gpt-4.1`, 가격 `OPENAI_PRICE_INPUT_PER_M=2.0`·`OUTPUT=8.0`(비용 기록용).
+  하루 AI 예산 `RUTI_DAILY_BUDGET_USD=3`은 그대로 — 사용자가 늘면 올려야 함.
