@@ -40,7 +40,7 @@
 .us-note{font-size:12px;color:var(--muted);margin:8px 20px 0;line-height:1.6}`;
 
   // 얼굴 기준점 (viewBox 0 0 320 280)
-  const F = {forehead: [160, 70], lc: [112, 150], rc: [208, 150], nose: [160, 140], chin: [160, 212], le: [133, 118], re: [187, 118], mouth: [160, 182]};
+  const F = {forehead: [160, 100], lc: [112, 150], rc: [208, 150], nose: [160, 140], chin: [160, 212], le: [133, 118], re: [187, 118], mouth: [160, 182]};
   const dot = (x, y, r = 7, cls = 'us-pop', delay = 0) => `<circle cx="${x}" cy="${y}" r="${r}" fill="var(--cream)" stroke="var(--line)" stroke-width="1.2" class="${cls}" style="animation-delay:${delay}s;transform-box:fill-box;transform-origin:center"/>`;
   const sweep = (d, delay = 0) => `<path d="${d}" fill="none" stroke="var(--brand)" stroke-width="3" stroke-linecap="round" stroke-dasharray="60" class="us-sweep" style="animation-delay:${delay}s" marker-end="url(#usArrow)"/>`;
   const finger = (x, y, cls = 'us-tap', delay = 0) => `<g class="${cls}" style="animation-delay:${delay}s"><ellipse cx="${x}" cy="${y + 14}" rx="9" ry="16" fill="var(--skin-d)" stroke="var(--line)" stroke-width="1.2"/><ellipse cx="${x}" cy="${y + 4}" rx="5" ry="4" fill="#fff" opacity=".55"/></g>`;
@@ -58,7 +58,7 @@
     <ellipse cx="112" cy="160" rx="16" ry="9" fill="#F0A99A" opacity=".35"/><ellipse cx="208" cy="160" rx="16" ry="9" fill="#F0A99A" opacity=".35"/>`;
   const fiveDots = steps => el(steps, [F.forehead, F.lc, F.rc, F.nose, F.chin].map(([x, y], i) => dot(x, y, 7, 'us-pop', i * .15)).join(''));
   const spreadArrows = (steps, delay0 = 0) => el(steps, [
-    sweep('M150 72 C130 66 110 66 96 76', delay0), sweep('M170 72 C190 66 210 66 224 76', delay0 + .2),
+    sweep('M150 104 C136 100 124 102 114 112', delay0), sweep('M170 104 C184 100 196 102 206 112', delay0 + .2),
     sweep('M118 150 C104 140 96 128 92 116', delay0 + .4), sweep('M202 150 C216 140 224 128 228 116', delay0 + .6),
     sweep('M160 214 C140 220 124 214 114 204', delay0 + .8)].join(''));
   const drops = (steps, x, y, n = 3) => el(steps, [...Array(n)].map((_, i) => `<path class="us-drop" style="animation-delay:${i * .35}s" d="M${x + (i - 1) * 16} ${y} q-6 10 0 16 q6 -6 0 -16z" fill="var(--water)"/>`).join(''));
@@ -74,7 +74,7 @@
     cleanser: {name: '세안제', steps: [
       ['미지근한 물로 얼굴을 적셔요', '뜨거운 물은 피부를 건조하게 할 수 있어요.'], ['거품을 충분히 내요', '손바닥에서 쫀쫀한 거품을 만들어요.'],
       ['원을 그리며 30초~1분', '문지르지 말고 거품으로 부드럽게 굴려요.'], ['미지근한 물로 깨끗이 헹궈요', '헤어라인·턱 아래도 꼼꼼히 헹궈요.']],
-      art: () => drops('1 4', 160, 40, 3) + palm('2', [130, 150, 170, 190].map((x, i) => `<circle cx="${x}" cy="244" r="${10 + (i % 2) * 4}" fill="var(--foam)" stroke="#BCD3EA" class="us-bub" style="animation-delay:${i * .2}s;transform-box:fill-box;transform-origin:center"/>`).join(''))
+      art: () => drops('1 4', 112, 134, 2) + drops('1 4', 208, 134, 2) + palm('2', [130, 150, 170, 190].map((x, i) => `<circle cx="${x}" cy="244" r="${10 + (i % 2) * 4}" fill="var(--foam)" stroke="#BCD3EA" class="us-bub" style="animation-delay:${i * .2}s;transform-box:fill-box;transform-origin:center"/>`).join(''))
         + el('3', [F.lc, F.rc, F.forehead, F.chin].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="15" fill="var(--foam)" stroke="#BCD3EA" class="us-bub" style="animation-delay:${i * .25}s;transform-box:fill-box;transform-origin:center"/>`).join('')
           + `<g class="us-circle" style="--ox:112px;--oy:150px">${finger(112, 128, '')}</g>`)},
     toner: {name: '토너', steps: [
