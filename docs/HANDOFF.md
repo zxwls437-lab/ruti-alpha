@@ -119,3 +119,6 @@
   `.github/workflows/tick.yml`이 10분마다 `/push/tick` 호출(알림 발송 + 서버 깨우기). FCM·Apple 서버에서 서명 통과 확인.
   주의: 새 파이썬 라이브러리를 쓰면 requirements.txt에 꼭 추가 (cryptography 빠져서 배포 1회 실패했었음)
 - 안드로이드 테스트 APK **3호** (루틴 알림 + 앱 공유창 + '깨우는 중' 안내): https://expo.dev/artifacts/eas/jz_BdQQ_kb6z85-dLVtZM6gucg8qK15Qpx3UomKD-ZY.apk
+- 2026-11-27 상담 AI: 상담만 `OPENAI_CHAT_MODEL=gpt-4.1`(Render 환경 변수, 대표 승인) — 성분 분석·사진은 `OPENAI_MODEL=gpt-4.1-mini` 그대로.
+  응답 캐시 키에 모델 포함. 인사·소개·감사·작별은 AI 없이 즉시(`ai.quick_reply`). 답은 이름으로 시작(`with_name`), 170자 넘거나
+  제품 2개 이상이면 한 번 다시 쓰기. 약·시술은 못 하는 이유를 솔직히. 특정 대상(매터니티·베이비·남성)용 제품 거르기. 피부 아바타·레벨업(`/routine/avatar`).
