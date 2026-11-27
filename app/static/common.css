@@ -117,3 +117,32 @@ body.in-app .topbar{padding-top:10px}
   .verdict.avoid,.verdict.check{border-color:transparent}
   .noing{color:#E9C987}
 }
+
+/* ===== 컴퓨터 화면 (폭 900px 이상): 위쪽 메뉴, 배경 장식, 넓은 배치 ===== */
+.toplinks{display:none}.welcome-art{display:none}
+.card,.today,.quick a,.rec-open,.sky{transition:transform .18s ease,box-shadow .18s ease}
+@media (min-width:900px){
+  body.app{background:
+    radial-gradient(600px 400px at 8% 12%,color-mix(in srgb,var(--brand) 13%,transparent),transparent 70%),
+    radial-gradient(520px 380px at 92% 30%,color-mix(in srgb,#F2A7A0 22%,transparent),transparent 70%),
+    radial-gradient(700px 500px at 60% 110%,color-mix(in srgb,#FFD98A 18%,transparent),transparent 70%),var(--bg);background-attachment:fixed}
+  nav.tabs{display:none}
+  body.app main{padding-bottom:48px}
+  .topbar{padding-top:14px;padding-bottom:14px}
+  .toplinks{display:flex;gap:4px;margin-right:12px}
+  .toplinks a{font-size:15px!important;font-weight:600;color:var(--text)!important;padding:8px 16px!important;border-radius:20px}
+  .toplinks a:hover{background:var(--soft)}
+  .toplinks a.on{background:var(--brand);color:#fff!important}
+  .card{box-shadow:0 10px 30px rgba(58,51,48,.06)}
+  a.card:hover,button.card:hover,.quick a:hover,.today:hover,.rec-open:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(58,51,48,.10)}
+  /* 로그인 첫 화면: 왼쪽 소개 + 오른쪽 로그인 */
+  form.auth{max-width:920px!important;display:grid;grid-template-columns:1.15fr 1fr;column-gap:40px;row-gap:12px;padding:36px;align-content:start}
+  form.auth>*{grid-column:2}
+  form.auth .welcome{grid-column:1;grid-row:1 / span 12;margin:0;padding:34px;justify-content:center;gap:14px;border-radius:24px}
+  form.auth .welcome-art{display:block;width:120px;animation:hFloat 3.2s ease-in-out infinite}
+  form.auth .welcome-title{font-size:28px;line-height:1.3}
+  form.auth .welcome-pt{font-size:16px}
+  form.auth .welcome + h2{margin-top:30px}
+}
+@keyframes hFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media (prefers-color-scheme:dark) and (min-width:900px){.toplinks a.on{color:#1B1816!important}}

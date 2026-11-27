@@ -73,7 +73,9 @@ const RUTI = {
     if (!form.querySelector('.welcome') && location.pathname !== '/admin') {
       const pts = [['📸', '성분표를 찍으면', '내 피부에 맞는지 바로 알려줘요'], ['🎬', '왜 안 맞는지', '그림으로 쉽게 보여줘요'],
                    ['🗓', '아침·저녁 루틴을', '내 피부에 맞게 짜 줘요']];
-      form.prepend(RUTI.el('div', {class: 'welcome'}, RUTI.el('div', {class: 'welcome-title'}, '내 피부를 아는 화장대, RUTI'),
+      const drop = RUTI.el('div', {class: 'welcome-art'});
+      drop.innerHTML = '<svg viewBox="0 0 120 120" aria-hidden="true"><path d="M60 10c22 26 36 45 36 62a36 36 0 0 1-72 0c0-17 14-36 36-62z" fill="#9CCBB8"/><path d="M46 40c-6 10-9 19-9 28" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".6" fill="none"/><circle cx="50" cy="74" r="4" fill="#3A3330"/><circle cx="70" cy="74" r="4" fill="#3A3330"/><ellipse cx="43" cy="84" rx="6" ry="3.5" fill="#F2A7A0" opacity=".8"/><ellipse cx="77" cy="84" rx="6" ry="3.5" fill="#F2A7A0" opacity=".8"/><path d="M54 86q6 6 12 0" stroke="#3A3330" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
+      form.prepend(RUTI.el('div', {class: 'welcome'}, drop, RUTI.el('div', {class: 'welcome-title'}, '내 피부를 아는 화장대, RUTI'),
         ...pts.map(([i, b, t]) => RUTI.el('div', {class: 'welcome-pt'}, RUTI.el('span', {class: 'welcome-ic'}, i), RUTI.el('span', {}, RUTI.el('b', {}, b), ' ' + t))),
         RUTI.el('div', {class: 'welcome-note'}, '무료 · 가입 30초 · 사진은 분석 후 바로 지워요')));
     }
@@ -278,7 +280,13 @@ window.addEventListener('beforeinstallprompt', e => {
   }
   const me = RUTI.el('a', {href: '/mypage', class: 'avatar-btn' + (here === '/mypage' ? ' on' : ''), 'aria-label': '내 정보'}, '');
   me.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>';
-  top.append(me);
+  // 컴퓨터 화면: 메뉴를 위쪽 머리글에 (아래 탭 바는 CSS로 숨김)
+  const links = RUTI.el('span', {class: 'toplinks'}, ...TABS.map(([path, label]) => {
+    const a = RUTI.el('a', {href: path, class: path === here ? 'on' : ''}, label);
+    if (path === here) a.setAttribute('aria-current', 'page');
+    return a;
+  }));
+  top.append(links, me);
   if (logout) top.insertBefore(logout, me);
   nav.replaceWith(top);
   document.body.classList.add('app');

@@ -38,6 +38,13 @@
 .tip b{color:var(--text);font-size:14px}.tip-ic{font-size:20px}
 .find-row{display:flex;align-items:center;gap:10px}.find-row .p-art{width:42px;height:48px;border-radius:10px}.find-row .hist-name{flex:1;min-width:0}
 .sheet-art{display:flex;justify-content:center;margin:4px 0 6px}.sheet-art .p-art{width:120px;height:136px}
+@media (min-width:900px){
+  #app:not(.hidden){display:grid;grid-template-columns:1.25fr 1fr;gap:18px;align-items:stretch}
+  #app>*{margin-top:0!important;margin-bottom:0!important}
+  #app>*{grid-column:1 / -1}
+  #app>.hero{grid-column:1;margin:0;padding:34px}#app>.hero+section.card{grid-column:2;margin:0}
+  #app>.hero .shoot-title{font-size:26px}
+}
 </style></head><body>
 <nav><b>RUTI</b><a href="/chat">상담</a><a href="/scan" class="on">성분 분석</a><a href="/community">커뮤니티</a><a href="/mypage">내 정보</a><a href="/admin">관리자</a><a href="#" id="logout" class="hidden">로그아웃</a></nav>
 <main>
