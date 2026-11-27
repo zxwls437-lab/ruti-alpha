@@ -114,3 +114,7 @@
   다음 빌드에 앱 공유창·'깨우는 중' 안내가 들어감 (`cd mobile && EXPO_TOKEN=proxy-injected eas build -p android --profile preview`)
 - 대표 결정 대기: 웹 서버 유료 전환(월 $7, 잠자기 없앰) — 외부 공개하는 날
 - 다음 후보: 구글 로그인(대표가 Google Cloud OAuth 클라이언트 만들어야 함), 구독 결제, 실사진 정확도 테스트, 3호 APK 빌드
+- 2026-11-27: 홈 'RUTI 시작하기' 3단계, 사진 인식 실패 안내, **웹 알림**(`app/webpush.py` VAPID+aes128gcm, `app/push.py`, sw.js push,
+  루틴 화면 설정 — 아이폰은 홈 화면에 추가해야 동작). 키는 Render 환경 변수 `RUTI_VAPID_PRIVATE/PUBLIC/SUBJECT`.
+  `.github/workflows/tick.yml`이 10분마다 `/push/tick` 호출(알림 발송 + 서버 깨우기). FCM·Apple 서버에서 서명 통과 확인.
+  주의: 새 파이썬 라이브러리를 쓰면 requirements.txt에 꼭 추가 (cryptography 빠져서 배포 1회 실패했었음)
