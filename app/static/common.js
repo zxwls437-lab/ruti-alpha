@@ -155,10 +155,31 @@ const RUTI = {
     try { await RUTI.api('/blocks', {method: 'POST', body: {target, id}}); RUTI.toast('차단했어요'); if (after) after(); } catch (e) { RUTI.toast(e.message); }
   },
   // 아래에서 올라오는 창 (브라우저 confirm/alert/prompt 대신: 앱 안에서도 똑같이 보이게)
+  // 열린 창이 있을 때 휴대폰 '뒤로'를 누르면 화면을 떠나지 않고 창만 닫히게 (onBack을 부른다). 반환: 정리 함수
+  // 창이 여러 개 겹치면 맨 위 창만 닫는다 (_backStack). 코드로 닫을 때 부르는 history.back()의 popstate는 무시 (_backSkip)
+  _backStack: [], _backSkip: 0,
+  backClosable(onBack){
+    try { history.pushState({rutiSheet: true}, ''); } catch { return () => {}; }
+    if (!RUTI._backBound) {
+      RUTI._backBound = true;
+      window.addEventListener('popstate', () => {
+        if (RUTI._backSkip > 0) { RUTI._backSkip--; return; }
+        const top = RUTI._backStack.pop(); if (top) { top.popped = true; top.onBack(); }
+      });
+    }
+    const entry = {onBack, popped: false};
+    RUTI._backStack.push(entry);
+    return () => {
+      const i = RUTI._backStack.indexOf(entry); if (i >= 0) RUTI._backStack.splice(i, 1);
+      if (!entry.popped) { RUTI._backSkip++; history.back(); }
+    };
+  },
   sheet(...children){
     const sheet = RUTI.el('div', {class: 'sheet', role: 'dialog', 'aria-modal': 'true'}, ...children);
     const overlay = RUTI.el('div', {class: 'sheet-overlay'}, sheet);
-    const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+    let release = () => {};
+    const close = () => { if (!overlay.isConnected) return; overlay.remove(); if (!document.querySelector('.sheet-overlay')) document.body.style.overflow = ''; release(); };
+    release = RUTI.backClosable(close);
     overlay.addEventListener('click', e => { if (e.target === overlay) { close(); overlay.dispatchEvent(new Event('dismiss')); } });
     document.body.append(overlay); document.body.style.overflow = 'hidden';
     return {overlay, close};
@@ -293,7 +314,7 @@ RUTI.skin = {
     const sheet = el('div', {class: 'sheet', role: 'dialog'});
     sheet.setAttribute('aria-modal', 'true');
     sheet.append(el('div', {class: 'sheet-head'}, el('h2', {}, '내 피부 정보'),
-      el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: () => close()}, '×')),
+      el('button', {type: 'button', class: 'sheet-x', 'aria-label': '닫기', onclick: () => dismiss()}, '×')),
       el('p', {class: 'muted'}, '고르면 성분 분석과 상담이 내 피부에 맞춰져요.'));
     let groups = [];
     // 피부 타입: 누르면 바로 아래에 그림 설명, 모르면 1분 테스트
@@ -350,20 +371,34 @@ RUTI.skin = {
       added.push(t); custom.push({id: 'new' + added.length, content: t}); input.value = ''; drawCustom();
     }}, '추가');
     sheet.append(el('h3', {}, '직접 적기'), customList, el('div', {class: 'row'}, input, addBtn), err);
-    const save = el('button', {type: 'button', class: 'sheet-save', onclick: async () => {
+    const initial = new Set(chosen);
+    const dirty = () => added.length > 0 || removeCustom.size > 0 || chosen.size !== initial.size || [...chosen].some(c => !initial.has(c));
+    const doSave = async () => {
       save.disabled = true; err.textContent = '';
       try {
         for (const m of mems) if ((preset.has(m.content) && !chosen.has(m.content)) || removeCustom.has(m.id)) await api('/memory/' + m.id, {method: 'DELETE'});
         const have = new Set(mems.map(m => m.content));
         for (const t of chosen) if (!have.has(t)) await api('/memory', {method: 'POST', body: {content: t}});
         for (const [i, t] of added.entries()) if (!removeCustom.has('new' + (i + 1))) await api('/memory', {method: 'POST', body: {content: t}});
-        close(); if (onSaved) onSaved();
-      } catch (e) { err.textContent = e.message; save.disabled = false; }
-    }}, '저장');
+        close(); if (onSaved) onSaved(); return true;
+      } catch (e) { err.textContent = e.message; save.disabled = false; return false; }
+    };
+    const save = el('button', {type: 'button', class: 'sheet-save', onclick: doSave}, '저장');
     sheet.append(save);
-    const overlay = el('div', {class: 'sheet-overlay', onclick: e => { if (e.target === overlay) close(); }}, sheet);
-    function close(){ overlay.remove(); document.body.style.overflow = ''; }
+    // 바깥을 누르거나 × 로 닫아도 고른 내용은 잃지 않게 자동 저장 (그냥 꺼져서 처음부터 다시 고르는 일 방지)
+    let closing = false;
+    async function dismiss(){
+      if (closing) return;
+      if (!dirty()) return close();
+      closing = true;
+      if (await doSave()) RUTI.toast('고른 내용을 저장했어요');
+      closing = false;
+    }
+    const overlay = el('div', {class: 'sheet-overlay', onclick: e => { if (e.target === overlay) dismiss(); }}, sheet);
+    let release = () => {};
+    function close(){ if (!overlay.isConnected) return; overlay.remove(); if (!document.querySelector('.sheet-overlay')) document.body.style.overflow = ''; release(); }
     document.body.append(overlay); document.body.style.overflow = 'hidden';
+    release = RUTI.backClosable(() => dismiss());
   },
   // 처음 로그인했는데 피부 정보가 없으면 한 번 물어본다
   async promptOnce(user, onSaved){
