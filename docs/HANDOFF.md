@@ -118,3 +118,4 @@
   루틴 화면 설정 — 아이폰은 홈 화면에 추가해야 동작). 키는 Render 환경 변수 `RUTI_VAPID_PRIVATE/PUBLIC/SUBJECT`.
   `.github/workflows/tick.yml`이 10분마다 `/push/tick` 호출(알림 발송 + 서버 깨우기). FCM·Apple 서버에서 서명 통과 확인.
   주의: 새 파이썬 라이브러리를 쓰면 requirements.txt에 꼭 추가 (cryptography 빠져서 배포 1회 실패했었음)
+- 안드로이드 테스트 APK **3호** (루틴 알림 + 앱 공유창 + '깨우는 중' 안내): https://expo.dev/artifacts/eas/jz_BdQQ_kb6z85-dLVtZM6gucg8qK15Qpx3UomKD-ZY.apk
