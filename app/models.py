@@ -141,6 +141,21 @@ class MfdsRecord(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class PushSubscription(Base):
+    """웹 알림 구독 (브라우저·아이폰 홈 화면 앱마다 하나). am/pm은 'HH:MM'(한국 시각) 또는 빈 값(끔)."""
+    __tablename__ = "push_subscriptions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(1000), unique=True)
+    p256dh: Mapped[str] = mapped_column(String(200))
+    auth: Mapped[str] = mapped_column(String(100))
+    am: Mapped[str] = mapped_column(String(5), default="")
+    pm: Mapped[str] = mapped_column(String(5), default="")
+    last_am: Mapped[str] = mapped_column(String(10), default="")   # 마지막으로 보낸 날짜 (하루 한 번)
+    last_pm: Mapped[str] = mapped_column(String(10), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class ErrorLog(Base):
     """서버 오류(500)와 사용자 화면(브라우저·앱)에서 난 자바스크립트 오류. 개인정보는 남기지 않는다(경로·메시지만)."""
     __tablename__ = "error_logs"

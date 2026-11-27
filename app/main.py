@@ -56,8 +56,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="RUTI API", version="0.5.0", lifespan=lifespan)
-from . import errors  # noqa: E402
+from . import errors, push  # noqa: E402
 app.include_router(errors.router)
+app.include_router(push.router)
 app.include_router(legal.router)
 app.include_router(datasync.router)
 app.include_router(admin_users.router)

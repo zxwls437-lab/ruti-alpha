@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .config import env
 from .db import get_db, utcnow
 from .models import (AuthSession, ChatMessage, Comment, Consent, Memory, Post, Product, ProductIngredientList, Review,
-                     ReviewVote, RoutineCheck, ScanResult, SkinLog, User, VanityItem)
+                     PushSubscription, ReviewVote, RoutineCheck, ScanResult, SkinLog, User, VanityItem)
 from .plans import plan_info
 from .security import _token_hash, bearer, current_user, hash_password, verify_password
 
@@ -235,7 +235,7 @@ def delete_account(payload: DeleteAccountIn, user: User = Depends(current_user),
     my_reviews = list(db.scalars(select(Review.id).where(Review.user_id == uid)))
     if my_reviews:
         db.execute(delete(ReviewVote).where(ReviewVote.review_id.in_(my_reviews)))
-    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review, RoutineCheck, SkinLog, VanityItem):
+    for model in (AuthSession, Memory, ChatMessage, ScanResult, Consent, ReviewVote, Review, RoutineCheck, SkinLog, VanityItem, PushSubscription):
         db.execute(delete(model).where(model.user_id == uid))
     db.execute(update(Product).where(Product.submitted_by == uid).values(submitted_by=None))
     db.execute(update(Product).where(Product.reviewed_by == uid).values(reviewed_by=None))

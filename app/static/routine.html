@@ -238,10 +238,56 @@ function editItem(id){
   document.body.append(overlay); document.body.style.overflow = 'hidden';
 }
 $('addProduct').addEventListener('click', addProductSheet);
+// 웹 알림 (브라우저, 아이폰은 홈 화면에 추가한 RUTI에서만): 서버가 정한 시각에 보낸다
+async function webReminders(){
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  let key = '';
+  try { const k = await api('/push/key'); if (!k.enabled) return; key = k.key; } catch { return; }
+  if (!supported && !(ios && !standalone)) return;  // 알림을 못 쓰는 브라우저면 숨김
+  $('remindCard').classList.remove('hidden');
+  const inputs = ['remAmOn', 'remPmOn', 'remAm', 'remPm'].map($);
+  if (ios && !standalone) {
+    // 아이폰 Safari 탭에서는 웹 알림이 안 된다 → 홈 화면에 추가하는 법 안내
+    inputs.forEach(i => { i.disabled = true; });
+    $('remindCard').append(el('div', {class: 'warn', style: 'margin-top:10px;font-size:13.5px'},
+      el('b', {}, '아이폰은 홈 화면에 추가하면 알림을 받을 수 있어요'),
+      el('div', {}, 'Safari 아래 공유 버튼(□↑) → "홈 화면에 추가" → 홈 화면의 RUTI로 열기')));
+    return;
+  }
+  let saved = {am: null, pm: null};
+  try { saved = JSON.parse(localStorage.getItem('ruti_reminders') || '{"am":null,"pm":null}'); } catch {}
+  for (const k of ['am', 'pm']) {
+    const on = $(k === 'am' ? 'remAmOn' : 'remPmOn'), t = $(k === 'am' ? 'remAm' : 'remPm');
+    on.checked = !!saved[k] && Notification.permission === 'granted'; if (saved[k]) t.value = saved[k]; t.disabled = !on.checked;
+  }
+  const toKey = b64 => { const raw = atob((b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); };
+  let busy = false;
+  const apply = async () => {
+    if (busy) return; busy = true;
+    const v = {am: $('remAmOn').checked ? $('remAm').value : null, pm: $('remPmOn').checked ? $('remPm').value : null};
+    $('remAm').disabled = !$('remAmOn').checked; $('remPm').disabled = !$('remPmOn').checked;
+    try {
+      if ((v.am || v.pm) && Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') {
+        $('remAmOn').checked = $('remPmOn').checked = false; $('remAm').disabled = $('remPm').disabled = true;
+        RUTI.toast('알림이 꺼져 있어요. 브라우저(또는 아이폰 설정 → 알림 → RUTI)에서 허용해 주세요'); return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub && (v.am || v.pm)) sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: toKey(key)});
+      if (sub) await api('/push/subscribe', {method: 'POST', body: {...sub.toJSON(), ...v}});
+      try { localStorage.setItem('ruti_reminders', JSON.stringify(v)); } catch {}
+      RUTI.toast(v.am || v.pm ? '알림을 저장했어요' : '알림을 껐어요');
+    } catch (e) { RUTI.toast(e.message || '알림을 설정하지 못했어요'); }
+    finally { busy = false; }
+  };
+  for (const id of ['remAmOn', 'remPmOn', 'remAm', 'remPm']) $(id).addEventListener('change', apply);
+}
 // 루틴 알림 (앱 안에서만): 설정은 이 폰에만 저장하고, 실제 알림은 앱이 폰에 건다
 (function reminders(){
   const bridge = window.ReactNativeWebView;
-  if (!window.RUTI_NATIVE || !bridge) return;
+  if (!window.RUTI_NATIVE || !bridge) return webReminders();
   $('remindCard').classList.remove('hidden');
   let saved = {am: null, pm: null};
   try { saved = JSON.parse(localStorage.getItem('ruti_reminders') || '{"am":null,"pm":null}'); } catch {}

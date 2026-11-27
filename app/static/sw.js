@@ -1,6 +1,6 @@
 // RUTI 서비스 워커: 화면 파일만 저장해 빠르게 열고, 인터넷이 끊기면 안내 화면을 보여준다.
 // 회원 정보·상담·분석 같은 API 응답은 절대 저장하지 않는다 (개인정보 보호).
-const CACHE = 'ruti-v23';
+const CACHE = 'ruti-v24';
 const SHELL = ['/static/common.css', '/static/common.js', '/static/explain.js', '/static/usage.js', '/static/offline.html',
   '/static/icons/icon-192.png', '/static/icons/icon-512.png'];
 const PAGES = ['/home', '/scan', '/routine', '/chat', '/community', '/mypage'];
@@ -33,4 +33,22 @@ self.addEventListener('fetch', e => {
     }));
   }
   // 그 밖의 요청(API)은 손대지 않음
+});
+
+// 루틴 웹 알림 (아이폰은 홈 화면에 추가한 경우만)
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = {title: 'RUTI', body: e.data ? e.data.text() : ''}; }
+  e.waitUntil(self.registration.showNotification(d.title || 'RUTI', {
+    body: d.body || '', icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png',
+    tag: 'ruti-routine', data: {url: d.url || '/routine'},
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/routine';
+  e.waitUntil(self.clients.matchAll({type: 'window', includeUncontrolled: true}).then(list => {
+    for (const c of list) if ('focus' in c) { c.navigate(url).catch(() => {}); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });
