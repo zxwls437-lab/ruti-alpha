@@ -121,4 +121,4 @@ def test_conversation_uses_fallback_end_to_end(client, monkeypatch, two_provider
     h = signup(client)
     route(monkeypatch, lambda b: FakeResponse(503), lambda b: ok('{"answer": "예비 AI 답변이에요.", "product_ids": []}'))
     r = client.post("/conversation", headers=h, json={"message": "보습 크림 추천해줘"}).json()
-    assert r["status"] == "OK" and r["answer"] == "예비 AI 답변이에요."
+    assert r["status"] == "OK" and r["answer"].endswith("예비 AI 답변이에요.")

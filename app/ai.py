@@ -31,6 +31,15 @@ SYSTEM_PROMPT = """당신은 스킨케어 상담 도우미 'RUTI'입니다. 피�
   · 앞서 말한 내용(대화 기록)을 이어서 말하면, 기억하고 있다는 게 드러나게 답하고 같은 말을 반복하지 마세요.
 - 사용자를 가르치거나 탓하지 마세요("그러니까 ~하셨어야죠" 금지).
 
+[못 하는 요청은 솔직하게]
+- 약(먹는 약·바르는 연고·전문의약품), 시술, 병원·의사 추천, 진단처럼 RUTI가 할 수 없는 요청을 받으면 돌려 말하거나 피하지 마세요.
+  "약은 의사·약사만 정할 수 있어서 제가 추천해 드릴 수 없어요"처럼 못 하는 이유를 첫 문장에 솔직하게 말하고,
+  이어서 "피부과나 약국에서 상담받으시면 빨리 맞는 약을 찾으실 수 있어요" + RUTI가 대신 할 수 있는 일 1가지를 짧게 말하세요.
+  (예: 여드름 약 → 약은 못 정하지만, 여드름 피부에 쓰는 화장품 성분이나 지금 쓰는 제품 성분은 제가 봐 드릴 수 있어요.)
+- 사용자가 "왜 안 알려줘", "그게 아니라", "답이 이상해"처럼 답이 마음에 안 든다고 하면, 먼저 "제가 제대로 답을 못 드렸네요, 죄송해요"라고
+  짧게 사과하고 그 질문에 정면으로 답하세요. 앞에서 한 말을 되풀이하지 마세요.
+- 사용자 질문에 직접 답하세요. 묻지 않은 이야기(피부 타입 핑계 등)로 돌리지 마세요. 피부 타입과 상관없는 이유를 지어내지 마세요.
+
 [숙제 주지 않기 — "제가 도와드릴게요"]
 - "~하세요", "~해 보세요"를 여러 개 나열하지 마세요. 사용자가 숙제를 받는 느낌이 들어요.
   꼭 필요한 행동은 1가지만, 부드럽게 말하세요. (예: "지금 쓰는 크림은 며칠만 쉬어 주시면 좋겠어요.")
@@ -123,6 +132,17 @@ AUDIENCES = {
     "baby": (("베이비", "baby", "유아", "아기", "키즈", "kids", "어린이", "주니어"), ("아기", "아이", "유아", "베이비", "아들", "딸", "어린이", "키즈")),
     "men": (("옴므", "homme", "포맨", "포 맨", "남성", "for men", "맨즈"), ("남성", "남자", "남편", "아빠", "옴므")),
 }
+
+
+MAX_ANSWER_CHARS = 170
+
+
+def with_name(answer: str, user_name: str) -> str:
+    """답을 사용자 이름으로 시작하게 한다 (AI가 가끔 빼먹어서)."""
+    name = (user_name or "").strip()
+    if not name or not answer or name in answer[:20]:
+        return answer
+    return f"{name}{'' if name.endswith('님') else '님'}, {answer}"
 
 
 def mentioned_products(answer: str, products: list[dict]) -> list[int]:
@@ -247,19 +267,24 @@ def generate_answer(message: str, memories: list[str], products: list[dict], his
         text, engine = ERROR_MESSAGES.get(e.code, ERROR_MESSAGES["error"])
         return AIResult(text, engine)
     answer, ids = parse_model_output(result.content, {p["id"] for p in selected})
+    # 규칙을 어긴 답(제품을 둘 이상 말함 / 너무 김)은 한 번만 다시 쓰게 한다
+    fixes = []
     if len(mentioned_products(answer, selected)) > 1:
-        # 글에서 제품을 둘 이상 말하면 한 번만 다시 쓰게 한다 (추천은 하나만)
+        fixes.append("제품을 두 개 이상 말했어요. 내 조건에 가장 잘 맞는 제품 딱 1개만 골라 주세요.")
+    if len(answer) > MAX_ANSWER_CHARS:
+        fixes.append(f"답이 너무 길어요({len(answer)}자). 같은 내용을 한 문장 반, 80자 안팎으로 줄여 주세요.")
+    if fixes:
         retry_msgs = build_messages(message, memories, selected, history, ingredients, review_stats, user_name) + [
-            {"role": "assistant", "content": result.content},
-            {"role": "user", "content": "제품을 두 개 이상 말했어요. 내 조건에 가장 잘 맞는 제품 딱 1개만 골라 같은 형식으로 다시 답해 주세요."}]
+            {"role": "assistant", "content": result.content}, {"role": "user", "content": " ".join(fixes) + " 같은 형식으로 다시 답해 주세요."}]
         try:
             again = llm.chat(retry_msgs, purpose="chat", schema=RESPONSE_SCHEMA, max_tokens=env_int("RUTI_MAX_OUTPUT_TOKENS", 500),
                              timeout=env_int("RUTI_AI_TIMEOUT_SECONDS", 30))
             a2, ids2 = parse_model_output(again.content, {p["id"] for p in selected})
-            if a2 and len(mentioned_products(a2, selected)) <= 1:
+            if a2 and len(mentioned_products(a2, selected)) <= 1 and len(a2) <= len(answer):
                 result, answer, ids = again, a2, ids2
         except llm.LLMError:
             pass
+    answer = with_name(answer, user_name)
     ids = ids[:1]  # 추천은 하나만 (가장 잘 맞는 것)
     try:
         data = json.loads(result.content)

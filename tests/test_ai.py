@@ -28,3 +28,10 @@ def test_mentioned_products():
     text = "아침용 '나이아신화이트닝 로션'과 저녁용 오아닉 오트밀딥모이스쳐크림을 추천해요"
     assert ai.mentioned_products(text, prods) == [1, 2]
     assert ai.mentioned_products("나이아신화이트닝로션을 추천해요", prods) == [1]
+
+
+def test_with_name():
+    from app import ai
+    assert ai.with_name("여드름 때문에 힘드셨죠.", "태현") == "태현님, 여드름 때문에 힘드셨죠."
+    assert ai.with_name("태현님, 안녕하세요.", "태현") == "태현님, 안녕하세요."
+    assert ai.with_name("안녕하세요.", "") == "안녕하세요."
