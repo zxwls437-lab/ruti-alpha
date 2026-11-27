@@ -79,7 +79,7 @@ class Product(Base):
     def to_public(self) -> dict:
         return {
             "id": self.id,
-            "name": self.name,
+            "name": self.display_name or self.name,  # 식약처 제품은 띄어 쓴 이름
             "brand": self.brand,
             "category": self.category,
             "skin_types": [s for s in self.skin_types.split(",") if s],
