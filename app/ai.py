@@ -125,6 +125,13 @@ AUDIENCES = {
 }
 
 
+def mentioned_products(answer: str, products: list[dict]) -> list[int]:
+    """답 글에 이름이 나온 후보 제품 id (띄어쓰기·괄호 무시)."""
+    norm = lambda t: re.sub(r"[\s()\[\]'\"·/]", "", t or "").lower()  # noqa: E731
+    text = norm(answer)
+    return [p["id"] for p in products if len(norm(p["name"])) >= 4 and norm(re.sub(r"\(.*?\)", "", p["name"])) in text]
+
+
 def audience_mismatch(p: dict, memories: list[str], message: str) -> bool:
     """제품이 특정 대상(임산부·아기·남성)용인데 사용자가 그 대상이라고 말한 적이 없으면 True."""
     name = f"{p.get('name', '')} {p.get('category', '')}".lower()
@@ -240,6 +247,19 @@ def generate_answer(message: str, memories: list[str], products: list[dict], his
         text, engine = ERROR_MESSAGES.get(e.code, ERROR_MESSAGES["error"])
         return AIResult(text, engine)
     answer, ids = parse_model_output(result.content, {p["id"] for p in selected})
+    if len(mentioned_products(answer, selected)) > 1:
+        # 글에서 제품을 둘 이상 말하면 한 번만 다시 쓰게 한다 (추천은 하나만)
+        retry_msgs = build_messages(message, memories, selected, history, ingredients, review_stats, user_name) + [
+            {"role": "assistant", "content": result.content},
+            {"role": "user", "content": "제품을 두 개 이상 말했어요. 내 조건에 가장 잘 맞는 제품 딱 1개만 골라 같은 형식으로 다시 답해 주세요."}]
+        try:
+            again = llm.chat(retry_msgs, purpose="chat", schema=RESPONSE_SCHEMA, max_tokens=env_int("RUTI_MAX_OUTPUT_TOKENS", 500),
+                             timeout=env_int("RUTI_AI_TIMEOUT_SECONDS", 30))
+            a2, ids2 = parse_model_output(again.content, {p["id"] for p in selected})
+            if a2 and len(mentioned_products(a2, selected)) <= 1:
+                result, answer, ids = again, a2, ids2
+        except llm.LLMError:
+            pass
     ids = ids[:1]  # 추천은 하나만 (가장 잘 맞는 것)
     try:
         data = json.loads(result.content)
